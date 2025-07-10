@@ -1,49 +1,123 @@
-# Getting Started with Create React App
+# Lean Kitchen Recipe Cost Calculator
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack web application for calculating recipe costs, including ingredients and packaging. Built for Lean Kitchen to help manage food costs and pricing.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **Ingredient Management**: Add, edit, and delete ingredients with cost per unit calculations
+- **Recipe Builder**: Create recipes with multiple ingredients and automatic cost calculation
+- **Multiple Packaging Options**: Add multiple packaging items to recipes with cost tracking
+- **Unit Conversion**: Support for various units (oz, lb, cup, tbsp, tsp, g, kg)
+- **Cost Analysis**: Automatic calculation of total recipe cost and cost per serving
+- **Database Integration**: PostgreSQL backend with full CRUD operations
 
-### `npm start`
+## Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Frontend**: React.js with modern CSS styling
+- **Backend**: Node.js with Express.js
+- **Database**: PostgreSQL
+- **API**: RESTful API design
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Project Structure
 
-### `npm test`
+```
+├── src/                    # React frontend
+├── routes/                 # Express API routes
+├── db/                     # Database configuration
+├── public/                 # Static assets
+├── server.js              # Express server entry point
+└── package.json           # Dependencies and scripts
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Setup Instructions
 
-### `npm run build`
+### Prerequisites
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- Node.js (v14 or higher)
+- PostgreSQL database
+- npm or yarn
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Installation
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. Clone the repository:
+```bash
+git clone <your-repo-url>
+cd lkpc
+```
 
-### `npm run eject`
+2. Install dependencies:
+```bash
+npm install
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+3. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your database credentials
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+4. Set up the database:
+```sql
+CREATE DATABASE recipe_cost_calculator;
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+5. The application will create the necessary tables automatically on first run.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Running the Application
 
-## Learn More
+1. Start the backend server:
+```bash
+node server.js
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+2. In a new terminal, start the React frontend:
+```bash
+npm start
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+3. Open your browser to `http://localhost:3000`
+
+## API Endpoints
+
+### Ingredients
+- `GET /api/ingredients` - Get all ingredients
+- `POST /api/ingredients` - Create new ingredient
+- `PUT /api/ingredients/:id` - Update ingredient
+- `DELETE /api/ingredients/:id` - Delete ingredient
+
+### Recipes
+- `GET /api/recipes` - Get all recipes
+- `GET /api/recipes/:id` - Get recipe with full details
+- `POST /api/recipes` - Create new recipe
+- `PUT /api/recipes/:id` - Update recipe
+- `DELETE /api/recipes/:id` - Delete recipe
+
+### Packaging
+- `GET /api/packing` - Get all packaging items
+- `POST /api/packing` - Create new packaging item
+- `PUT /api/packing/:id` - Update packaging item
+- `DELETE /api/packing/:id` - Delete packaging item
+
+## Database Schema
+
+### Tables
+- `ingredients`: Ingredient data with costs and units
+- `recipes`: Recipe basic information
+- `recipe_ingredients`: Junction table for recipe-ingredient relationships
+- `packing`: Packaging items and costs
+- `recipe_packaging`: Junction table for recipe-packaging relationships
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is proprietary to Lean Kitchen.
 
 ### Code Splitting
 
