@@ -7,8 +7,9 @@ function App() {
   const [recipes, setRecipes] = useState([]);
   const [packing, setPacking] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [reportsData, setReportsData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('ingredients');
+  const [activeTab, setActiveTab] = useState('reports');
   
   // New ingredient form
   const [newIngredient, setNewIngredient] = useState({
@@ -74,9 +75,15 @@ function App() {
 
     const cost = calculateIngredientCost(selectedIngredient, recipeIngredient.quantity, recipeIngredient.unit);
     
+    // Find vendor name to display with ingredient
+    const vendor = vendors.find(v => v.id === selectedIngredient.vendor_id);
+    const displayName = vendor 
+      ? `${selectedIngredient.name} (${vendor.name})`
+      : `${selectedIngredient.name} (No vendor)`;
+    
     const newRecipeIngredient = {
       ingredient_id: selectedIngredient.id,
-      ingredient_name: selectedIngredient.name,
+      ingredient_name: displayName,
       quantity: parseFloat(recipeIngredient.quantity),
       unit: recipeIngredient.unit,
       cost: cost
@@ -549,6 +556,28 @@ function App() {
     }
   };
 
+  // Fetch reports data
+  const fetchReportsData = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/reports/dashboard');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setReportsData(data);
+    } catch (error) {
+      console.error('Error fetching reports data:', error);
+      alert('Error fetching reports data: ' + error.message);
+    }
+  };
+
+  // Load reports data when tab is selected
+  useEffect(() => {
+    if (activeTab === 'reports' && !reportsData) {
+      fetchReportsData();
+    }
+  }, [activeTab, reportsData]);
+
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -603,22 +632,22 @@ function App() {
           {/* Tab Navigation */}
           <div style={{ marginBottom: '40px' }}>
             <button 
-              onClick={() => setActiveTab('ingredients')}
+              onClick={() => setActiveTab('reports')}
               style={{ 
                 padding: '12px 24px', 
                 margin: '0 8px', 
-                backgroundColor: activeTab === 'ingredients' ? '#DAA520' : '#ffffff', // Gold when active
-                color: activeTab === 'ingredients' ? 'white' : '#4a4a4a', // White text when active, dark grey when inactive
-                border: activeTab === 'ingredients' ? '2px solid #DAA520' : '2px solid #d3d3d3', // Gold border when active
+                backgroundColor: activeTab === 'reports' ? '#8A2BE2' : '#ffffff', // Blue violet when active
+                color: activeTab === 'reports' ? 'white' : '#4a4a4a', // White text when active, dark grey when inactive
+                border: activeTab === 'reports' ? '2px solid #8A2BE2' : '2px solid #d3d3d3', // Purple border when active
                 borderRadius: '25px',
                 cursor: 'pointer',
                 fontSize: '16px',
                 fontWeight: '600',
                 transition: 'all 0.3s ease',
-                boxShadow: activeTab === 'ingredients' ? '0 4px 12px rgba(218, 165, 32, 0.3)' : '0 2px 4px rgba(0,0,0,0.1)'
+                boxShadow: activeTab === 'reports' ? '0 4px 12px rgba(138, 43, 226, 0.3)' : '0 2px 4px rgba(0,0,0,0.1)'
               }}
             >
-              🧱 Ingredient Database
+              📊 Business Reports
             </button>
             <button 
               onClick={() => setActiveTab('recipes')}
@@ -637,6 +666,24 @@ function App() {
               }}
             >
               📝 Recipe Builder
+            </button>
+            <button 
+              onClick={() => setActiveTab('ingredients')}
+              style={{ 
+                padding: '12px 24px', 
+                margin: '0 8px', 
+                backgroundColor: activeTab === 'ingredients' ? '#DAA520' : '#ffffff', // Gold when active
+                color: activeTab === 'ingredients' ? 'white' : '#4a4a4a', // White text when active, dark grey when inactive
+                border: activeTab === 'ingredients' ? '2px solid #DAA520' : '2px solid #d3d3d3', // Gold border when active
+                borderRadius: '25px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: '600',
+                transition: 'all 0.3s ease',
+                boxShadow: activeTab === 'ingredients' ? '0 4px 12px rgba(218, 165, 32, 0.3)' : '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            >
+              🧱 Ingredient Database
             </button>
             <button 
               onClick={() => setActiveTab('packing')}
@@ -784,6 +831,7 @@ function App() {
                       <option value="">Select Unit</option>
                       <option value="oz">Ounces (oz)</option>
                       <option value="lb">Pounds (lb)</option>
+                      <option value="cup">Cups</option>
                     </select>
                     <select
                       value={newIngredient.vendor_id}
@@ -1312,11 +1360,17 @@ function App() {
                           }}
                         >
                           <option value="">Select Ingredient</option>
-                          {ingredients.map(ingredient => (
-                            <option key={ingredient.id} value={ingredient.id}>
-                              {ingredient.name}
-                            </option>
-                          ))}
+                          {ingredients.map(ingredient => {
+                            const vendorName = vendors.find(v => v.id === ingredient.vendor_id)?.name;
+                            const displayName = vendorName 
+                              ? `${ingredient.name} (${vendorName})`
+                              : `${ingredient.name} (No vendor)`;
+                            return (
+                              <option key={ingredient.id} value={ingredient.id}>
+                                {displayName}
+                              </option>
+                            );
+                          })}
                         </select>
                         <input
                           type="number"
@@ -1348,10 +1402,6 @@ function App() {
                           <option value="oz">Ounces (oz)</option>
                           <option value="lb">Pounds (lb)</option>
                           <option value="cup">Cups</option>
-                          <option value="tbsp">Tablespoons</option>
-                          <option value="tsp">Teaspoons</option>
-                          <option value="g">Grams (g)</option>
-                          <option value="kg">Kilograms (kg)</option>
                         </select>
                         <button
                           type="button"
@@ -2095,6 +2145,174 @@ function App() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'reports' && (
+            <div>
+              <h2 style={{ 
+                fontSize: '1.8rem', 
+                color: '#4a4a4a',
+                marginBottom: '30px',
+                textAlign: 'center'
+              }}>
+                📊 Business Reports Dashboard
+              </h2>
+
+              {reportsData ? (
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+                  gap: '20px',
+                  marginBottom: '30px'
+                }}>
+                  {/* Summary Cards */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    padding: '20px',
+                    borderRadius: '15px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    border: '2px solid #8A2BE2'
+                  }}>
+                    <h3 style={{ color: '#8A2BE2', marginBottom: '15px' }}>📈 Summary</h3>
+                    <p><strong>Total Recipes:</strong> {reportsData.recipe_statistics?.total_recipes || 0}</p>
+                    <p><strong>Avg Recipe Cost:</strong> ${parseFloat(reportsData.recipe_statistics?.avg_recipe_cost || 0).toFixed(2)}</p>
+                    <p><strong>Highest Cost:</strong> ${parseFloat(reportsData.recipe_statistics?.highest_recipe_cost || 0).toFixed(2)}</p>
+                    <p><strong>Lowest Cost:</strong> ${parseFloat(reportsData.recipe_statistics?.lowest_recipe_cost || 0).toFixed(2)}</p>
+                  </div>
+
+                  {/* Highest Cost Recipes */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    padding: '20px',
+                    borderRadius: '15px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    border: '2px solid #dc3545'
+                  }}>
+                    <h3 style={{ color: '#dc3545', marginBottom: '15px' }}>💰 Highest Cost Recipes</h3>
+                    {reportsData.highest_cost_recipes && reportsData.highest_cost_recipes.length > 0 ? (
+                      reportsData.highest_cost_recipes.map((recipe, index) => (
+                        <div key={recipe.name || index} style={{ marginBottom: '10px' }}>
+                          <strong>{index + 1}. {recipe.name}</strong>
+                          <br />
+                          <span style={{ color: '#666' }}>Cost: ${parseFloat(recipe.total_recipe_cost || 0).toFixed(2)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p>No recipe data available</p>
+                    )}
+                  </div>
+
+                  {/* Most Profitable Recipes */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    padding: '20px',
+                    borderRadius: '15px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    border: '2px solid #28a745'
+                  }}>
+                    <h3 style={{ color: '#28a745', marginBottom: '15px' }}>🏆 Most Profitable Recipes</h3>
+                    {reportsData.most_profitable_recipes && reportsData.most_profitable_recipes.length > 0 ? (
+                      reportsData.most_profitable_recipes.map((recipe, index) => (
+                        <div key={recipe.name || index} style={{ marginBottom: '10px' }}>
+                          <strong>{index + 1}. {recipe.name}</strong>
+                          <br />
+                          <span style={{ color: '#666' }}>
+                            Profit Margin: {parseFloat(recipe.profit_margin_percent || 0).toFixed(2)}%
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p>No profitability data available</p>
+                    )}
+                  </div>
+
+                  {/* Weekly Analysis */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    padding: '20px',
+                    borderRadius: '15px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    border: '2px solid #17a2b8'
+                  }}>
+                    <h3 style={{ color: '#17a2b8', marginBottom: '15px' }}>📅 Weekly Analysis</h3>
+                    {reportsData.weekly_analysis && reportsData.weekly_analysis.length > 0 ? (
+                      reportsData.weekly_analysis.map((week, index) => (
+                        <div key={index} style={{ marginBottom: '10px' }}>
+                          <p><strong>Recipes Created:</strong> {week.recipes_created}</p>
+                          <p><strong>Total Cost:</strong> ${parseFloat(week.total_cost || 0).toFixed(2)}</p>
+                          <p><strong>Est. Revenue:</strong> ${parseFloat(week.estimated_revenue || 0).toFixed(2)}</p>
+                          <p><strong>Est. Profit:</strong> ${parseFloat(week.estimated_profit || 0).toFixed(2)}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p>No weekly data available</p>
+                    )}
+                  </div>
+
+                  {/* Recipe Metrics */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    padding: '20px',
+                    borderRadius: '15px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    border: '2px solid #ffc107'
+                  }}>
+                    <h3 style={{ color: '#e68900', marginBottom: '15px' }}>� Profit Metrics</h3>
+                    <p><strong>Avg Profit Margin:</strong> {parseFloat(reportsData.average_profit_margin?.avg_profit_margin_percent || 0).toFixed(2)}%</p>
+                    <p><strong>Total Cost (All):</strong> ${parseFloat(reportsData.recipe_statistics?.total_cost_all_recipes || 0).toFixed(2)}</p>
+                  </div>
+
+                  {/* Vendor Analysis */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    padding: '20px',
+                    borderRadius: '15px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    border: '2px solid #6f42c1'
+                  }}>
+                    <h3 style={{ color: '#6f42c1', marginBottom: '15px' }}>🏪 Vendor Analysis</h3>
+                    {reportsData.vendor_analysis && reportsData.vendor_analysis.length > 0 ? (
+                      reportsData.vendor_analysis.map((vendor, index) => (
+                        <div key={vendor.vendor_name || index} style={{ marginBottom: '10px' }}>
+                          <strong>{vendor.vendor_name || 'No Vendor'}</strong>
+                          <br />
+                          <span style={{ color: '#666' }}>
+                            Ingredients: {vendor.ingredient_count} | 
+                            Avg Cost: ${parseFloat(vendor.avg_ingredient_cost || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p>No vendor data available</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '40px',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '15px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                }}>
+                  <p>Loading reports data...</p>
+                  <button 
+                    onClick={fetchReportsData}
+                    style={{
+                      padding: '10px 20px',
+                      backgroundColor: '#8A2BE2',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      marginTop: '10px'
+                    }}
+                  >
+                    Refresh Reports
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
