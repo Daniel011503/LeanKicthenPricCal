@@ -6,6 +6,7 @@ function App() {
   const [ingredients, setIngredients] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [packing, setPacking] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('ingredients');
   
@@ -13,31 +14,10 @@ function App() {
   const [newIngredient, setNewIngredient] = useState({
     name: '',
     cost_per_unit: '',
-    base_cost: '', // Cost for a single unit (calculated automatically)
     quantity: '', // Added quantity field
-    unit_type: ''
+    unit_type: '',
+    vendor_id: ''
   });
-
-  // Calculate base cost automatically when cost_per_unit, quantity, or unit_type changes
-  useEffect(() => {
-    if (newIngredient.cost_per_unit && newIngredient.quantity && newIngredient.unit_type) {
-      const totalCost = parseFloat(newIngredient.cost_per_unit);
-      const quantity = parseFloat(newIngredient.quantity);
-      
-      // Base cost is the cost per single unit (total cost divided by quantity)
-      const baseCost = totalCost / quantity;
-      setNewIngredient(prev => ({
-        ...prev,
-        base_cost: baseCost.toFixed(2)
-      }));
-    } else if (newIngredient.cost_per_unit && !newIngredient.quantity) {
-      // If no quantity entered yet, clear base cost
-      setNewIngredient(prev => ({
-        ...prev,
-        base_cost: ''
-      }));
-    }
-  }, [newIngredient.cost_per_unit, newIngredient.quantity, newIngredient.unit_type]);
 
   // Unit conversion function
   const convertToOunces = (quantity, unit) => {
@@ -199,6 +179,13 @@ function App() {
     price: ''
   });
 
+  // New vendor form
+  const [newVendor, setNewVendor] = useState({
+    name: '',
+    address: '',
+    phone: ''
+  });
+
   // Test backend connection
   useEffect(() => {
     const checkBackendHealth = async () => {
@@ -279,10 +266,29 @@ function App() {
       }
     };
 
+    const fetchVendors = async () => {
+      try {
+        console.log('Fetching vendors from: http://localhost:5000/api/vendors');
+        const response = await fetch('http://localhost:5000/api/vendors', {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          mode: 'cors'
+        });
+        const data = await response.json();
+        console.log('Vendors response:', data);
+        setVendors(data);
+      } catch (error) {
+        console.error('Failed to fetch vendors:', error);
+      }
+    };
+
     checkBackendHealth();
     fetchIngredients();
     fetchRecipes();
     fetchPacking();
+    fetchVendors();
   }, []);
 
   const handleAddIngredient = async (e) => {
@@ -300,7 +306,13 @@ function App() {
       if (response.ok) {
         const addedIngredient = await response.json();
         setIngredients([...ingredients, addedIngredient]);
-        setNewIngredient({ name: '', cost_per_unit: '', base_cost: '', quantity: '', unit_type: '' });
+        setNewIngredient({ 
+          name: '', 
+          cost_per_unit: '', 
+          quantity: '', 
+          unit_type: '',
+          vendor_id: ''
+        });
         alert('Ingredient added successfully!');
       } else {
         const error = await response.json();
@@ -481,6 +493,62 @@ function App() {
     }
   };
 
+  // Vendor management functions
+  const handleAddVendor = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('http://localhost:5000/api/vendors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors',
+        body: JSON.stringify(newVendor)
+      });
+      
+      if (response.ok) {
+        const addedVendor = await response.json();
+        setVendors([...vendors, addedVendor]);
+        setNewVendor({ name: '', address: '', phone: '' });
+        alert('Vendor added successfully!');
+      } else {
+        const error = await response.json();
+        alert('Error adding vendor: ' + (error.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error adding vendor:', error);
+      alert('Error adding vendor: ' + error.message);
+    }
+  };
+
+  const handleDeleteVendor = async (vendorId) => {
+    if (!window.confirm('Are you sure you want to delete this vendor?')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`http://localhost:5000/api/vendors/${vendorId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors'
+      });
+      
+      if (response.ok) {
+        // Remove from local state
+        setVendors(vendors.filter(vendor => vendor.id !== vendorId));
+        alert('Vendor deleted successfully!');
+      } else {
+        const error = await response.json();
+        alert('Error deleting vendor: ' + (error.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting vendor:', error);
+      alert('Error deleting vendor: ' + error.message);
+    }
+  };
+
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -588,6 +656,24 @@ function App() {
             >
               📦 Packing Database
             </button>
+            <button 
+              onClick={() => setActiveTab('vendors')}
+              style={{ 
+                padding: '12px 24px', 
+                margin: '0 8px', 
+                backgroundColor: activeTab === 'vendors' ? '#4169E1' : '#ffffff', // Royal blue when active
+                color: activeTab === 'vendors' ? 'white' : '#4a4a4a', // White text when active, dark grey when inactive
+                border: activeTab === 'vendors' ? '2px solid #4169E1' : '2px solid #d3d3d3', // Blue border when active
+                borderRadius: '25px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: '600',
+                transition: 'all 0.3s ease',
+                boxShadow: activeTab === 'vendors' ? '0 4px 12px rgba(65, 105, 225, 0.3)' : '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            >
+              🏪 Vendor Database
+            </button>
           </div>
         </header>
 
@@ -666,22 +752,6 @@ function App() {
                     <input
                       type="number"
                       step="0.01"
-                      placeholder="Base cost (cost for 1 unit)"
-                      value={newIngredient.base_cost}
-                      readOnly
-                      style={{ 
-                        padding: '12px 16px', 
-                        borderRadius: '8px', 
-                        border: '2px solid #e9ecef', // Lighter border for read-only
-                        fontSize: '16px',
-                        backgroundColor: '#f8f9fa', // Light background for read-only
-                        color: '#6c757d', // Muted text color
-                        cursor: 'not-allowed'
-                      }}
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
                       placeholder="Quantity on hand"
                       value={newIngredient.quantity}
                       onChange={(e) => setNewIngredient({...newIngredient, quantity: e.target.value})}
@@ -714,6 +784,26 @@ function App() {
                       <option value="">Select Unit</option>
                       <option value="oz">Ounces (oz)</option>
                       <option value="lb">Pounds (lb)</option>
+                    </select>
+                    <select
+                      value={newIngredient.vendor_id}
+                      onChange={(e) => setNewIngredient({...newIngredient, vendor_id: e.target.value})}
+                      style={{ 
+                        padding: '12px 16px', 
+                        borderRadius: '8px', 
+                        border: '2px solid #d3d3d3',
+                        fontSize: '16px',
+                        backgroundColor: 'white',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="">Select Vendor (Optional)</option>
+                      {vendors.map(vendor => (
+                        <option key={vendor.id} value={vendor.id}>
+                          {vendor.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <button type="submit" style={{ 
@@ -768,7 +858,7 @@ function App() {
                     {/* Header Row */}
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto',
+                      gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1.5fr auto',
                       gap: '15px',
                       padding: '15px 20px',
                       backgroundColor: '#f5f5f5',
@@ -783,6 +873,7 @@ function App() {
                       <div style={{ textAlign: 'center' }}>COST PER UNIT</div>
                       <div style={{ textAlign: 'center' }}>QUANTITY</div>
                       <div style={{ textAlign: 'center' }}>UNIT TYPE</div>
+                      <div style={{ textAlign: 'center' }}>VENDOR</div>
                       <div style={{ textAlign: 'center' }}>ACTION</div>
                     </div>
                     {ingredients.map((ingredient, index) => (
@@ -791,7 +882,7 @@ function App() {
                         padding: '20px', 
                         borderRadius: '12px',
                         display: 'grid',
-                        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto',
+                        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1.5fr auto',
                         gap: '15px', // Reduced gap slightly for better fit
                         alignItems: 'center',
                         border: '2px solid #DAA520', // Gold border for ingredient items
@@ -868,6 +959,24 @@ function App() {
                             fontSize: '14px'
                           }}>
                             {ingredient.unit_type || ingredient.unit}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <span style={{ 
+                            color: '#6f42c1', // Purple for vendor
+                            backgroundColor: '#f8f9fa', // Light background
+                            padding: '5px 10px',
+                            borderRadius: '15px',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                          }}>
+                            {(() => {
+                              const vendor = vendors.find(v => v.id === ingredient.vendor_id);
+                              if (vendor) {
+                                return <div>{vendor.name}</div>;
+                              }
+                              return 'No vendor';
+                            })()}
                           </span>
                         </div>
                         <div style={{ textAlign: 'center' }}>
@@ -1729,6 +1838,260 @@ function App() {
                   }}>
                     <div style={{ fontSize: '48px', marginBottom: '15px' }}>📦</div>
                     <p style={{ fontSize: '18px', margin: '0' }}>No packing items found. Add your first packing item to get started!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'vendors' && (
+            <div>
+              <h2 style={{ 
+                fontSize: '1.8rem', 
+                color: '#4a4a4a', // Dark grey instead of blue
+                marginBottom: '30px',
+                textAlign: 'center'
+              }}>
+                🏢 Vendor Management
+              </h2>
+              
+              {/* Add New Vendor Form */}
+              <div style={{ 
+                backgroundColor: '#ffffff', 
+                padding: '30px',
+                borderRadius: '15px',
+                marginBottom: '30px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                border: '2px solid #4169E1' // Blue border for vendor form
+              }}>
+                <h3 style={{ 
+                  color: '#4169E1', // Royal blue color
+                  marginBottom: '25px',
+                  fontSize: '1.3rem',
+                  textAlign: 'center'
+                }}>
+                  ➕ Add New Vendor
+                </h3>
+                
+                <form onSubmit={handleAddVendor}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', marginBottom: '20px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', color: '#4a4a4a', fontWeight: '600' }}>
+                      Vendor Name <span style={{ color: '#dc3545' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newVendor.name}
+                      onChange={(e) => setNewVendor({ ...newVendor, name: e.target.value })}
+                      placeholder="Enter vendor name..."
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: '2px solid #d3d3d3',
+                        fontSize: '16px',
+                        transition: 'border-color 0.2s ease',
+                        outline: 'none'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#4169E1'}
+                      onBlur={(e) => e.target.style.borderColor = '#d3d3d3'}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', color: '#4a4a4a', fontWeight: '600' }}>
+                      Phone Number
+                    </label>
+                    <input
+                      type="text"
+                      value={newVendor.phone}
+                      onChange={(e) => setNewVendor({ ...newVendor, phone: e.target.value })}
+                      placeholder="(555) 123-4567"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: '2px solid #d3d3d3',
+                        fontSize: '16px',
+                        transition: 'border-color 0.2s ease',
+                        outline: 'none'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#4169E1'}
+                      onBlur={(e) => e.target.style.borderColor = '#d3d3d3'}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', color: '#4a4a4a', fontWeight: '600' }}>
+                      Address
+                    </label>
+                    <input
+                      type="text"
+                      value={newVendor.address}
+                      onChange={(e) => setNewVendor({ ...newVendor, address: e.target.value })}
+                      placeholder="123 Business St, City, State 12345"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: '2px solid #d3d3d3',
+                        fontSize: '16px',
+                        transition: 'border-color 0.2s ease',
+                        outline: 'none'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#4169E1'}
+                      onBlur={(e) => e.target.style.borderColor = '#d3d3d3'}
+                    />
+                  </div>
+                </div>
+                
+                <button
+                  type="submit"
+                  style={{
+                    width: '100%',
+                    padding: '15px',
+                    backgroundColor: '#4169E1', // Royal blue background
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s ease, transform 0.1s ease',
+                    boxShadow: '0 4px 12px rgba(65, 105, 225, 0.3)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#365ed6';
+                    e.target.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = '#4169E1';
+                    e.target.style.transform = 'translateY(0)';
+                  }}
+                >
+                  🏢 Add Vendor
+                </button>
+                </form>
+              </div>
+
+              {/* Vendors List */}
+              <div style={{ 
+                backgroundColor: '#ffffff', 
+                padding: '30px',
+                borderRadius: '15px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                border: '2px solid #4169E1' // Blue border for vendors list
+              }}>
+                <h3 style={{ 
+                  color: '#4169E1', // Royal blue color
+                  marginBottom: '25px',
+                  fontSize: '1.3rem',
+                  textAlign: 'center'
+                }}>
+                  📋 Vendor List ({vendors.length})
+                </h3>
+                
+                {vendors.length === 0 ? (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '40px', 
+                    color: '#4a4a4a', // Dark grey text
+                    backgroundColor: '#ffffff', // White background
+                    borderRadius: '12px',
+                    border: '2px dashed #4169E1' // Blue dashed border for vendors
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '15px' }}>🏢</div>
+                    <p style={{ fontSize: '18px', margin: '0' }}>No vendors found. Add your first vendor to get started!</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '15px' }}>
+                    {/* Header Row */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '2fr 1fr 2fr auto',
+                      gap: '15px',
+                      padding: '15px 20px',
+                      backgroundColor: '#f5f5f5',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      color: '#4a4a4a',
+                      border: '2px solid #d3d3d3'
+                    }}>
+                      <div>VENDOR NAME</div>
+                      <div style={{ textAlign: 'center' }}>PHONE</div>
+                      <div style={{ textAlign: 'center' }}>ADDRESS</div>
+                      <div style={{ textAlign: 'center' }}>ACTION</div>
+                    </div>
+                    {vendors.map((vendor, index) => (
+                      <div key={index} style={{ 
+                        backgroundColor: '#ffffff', // Pure white background
+                        padding: '20px', 
+                        borderRadius: '12px',
+                        display: 'grid',
+                        gridTemplateColumns: '2fr 1fr 2fr auto',
+                        gap: '15px',
+                        alignItems: 'center',
+                        border: '2px solid #4169E1', // Blue border for vendor items
+                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                        cursor: 'pointer'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(65, 105, 225, 0.2)'; // Blue shadow
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}>
+                        <div>
+                          <strong style={{ fontSize: '18px', color: '#4a4a4a' }}>{vendor.name}</strong>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          {vendor.phone ? (
+                            <span style={{ fontSize: '14px', color: '#4a4a4a' }}>{vendor.phone}</span>
+                          ) : (
+                            <span style={{ color: '#6c757d', fontSize: '14px' }}>No phone</span>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          {vendor.address ? (
+                            <span style={{ fontSize: '14px', color: '#4a4a4a' }}>{vendor.address}</span>
+                          ) : (
+                            <span style={{ color: '#6c757d', fontSize: '14px' }}>No address</span>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteVendor(vendor.id);
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              backgroundColor: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              transition: 'background-color 0.2s ease',
+                              boxShadow: '0 2px 4px rgba(220, 53, 69, 0.3)'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#c82333';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = '#dc3545';
+                            }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

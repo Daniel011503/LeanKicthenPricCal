@@ -10,6 +10,7 @@ const ingredientRoutes = require('./routes/ingredients');
 const recipeRoutes = require('./routes/recipes');
 const calculationRoutes = require('./routes/calculations');
 const packingRoutes = require('./routes/packing');
+const vendorRoutes = require('./routes/vendors');
 
 // Middleware
 app.use(cors({
@@ -25,6 +26,7 @@ app.use('/api/ingredients', ingredientRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/calculations', calculationRoutes);
 app.use('/api/packing', packingRoutes);
+app.use('/api/vendors', vendorRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
