@@ -9,7 +9,8 @@ const validateIngredient = [
   body('cost_per_unit').isFloat({ min: 0 }).withMessage('Cost per unit must be a positive number'),
   body('quantity').isFloat({ min: 0 }).withMessage('Quantity must be a positive number'),
   body('unit_type').notEmpty().trim().withMessage('Unit type is required'),
-  body('vendor_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Vendor ID must be a positive integer')
+  body('vendor_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Vendor ID must be a positive integer'),
+  body('box_count').optional().isInt({ min: 1 }).withMessage('Box count must be a positive integer')
 ];
 
 // GET all ingredients
@@ -65,18 +66,25 @@ router.post('/', validateIngredient, async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, cost_per_unit, quantity, unit_type, vendor_id } = req.body;
+    const { name, cost_per_unit, quantity, unit_type, vendor_id, box_count } = req.body;
     
-    console.log('🥬 Creating ingredient:', { name, cost_per_unit, quantity, unit_type, vendor_id });
+    console.log('🥬 Creating ingredient:', { name, cost_per_unit, quantity, unit_type, vendor_id, box_count });
     
-    // Calculate base_cost automatically (cost per single unit)
-    const base_cost = cost_per_unit / quantity;
+    // cost_per_unit is the TOTAL amount paid for all boxes
+    // box_count is how many boxes were purchased
+    // quantity is the quantity PER BOX
+    // Calculate cost per single box
+    const boxCount = box_count || 1;
+    const cost_per_box = cost_per_unit / boxCount;
+    
+    // Calculate base_cost: (cost_per_unit / box_count) / quantity
+    const base_cost = cost_per_box / quantity;
     
     const result = await pool.query(
       `INSERT INTO ingredients 
-       (name, cost_per_unit, base_cost, quantity, unit_type, vendor_id, last_price_check) 
-       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_DATE) RETURNING *`,
-      [name, cost_per_unit, base_cost, quantity, unit_type, vendor_id || null]
+       (name, cost_per_unit, cost_per_box, base_cost, quantity, unit_type, vendor_id, box_count, last_price_check) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_DATE) RETURNING *`,
+      [name, cost_per_unit, cost_per_box, base_cost, quantity, unit_type, vendor_id || null, boxCount]
     );
     
     console.log('✅ Ingredient created:', result.rows[0]);
@@ -100,18 +108,25 @@ router.put('/:id', validateIngredient, async (req, res) => {
     }
 
     const { id } = req.params;
-    const { name, cost_per_unit, quantity, unit_type, vendor_id } = req.body;
+    const { name, cost_per_unit, quantity, unit_type, vendor_id, box_count } = req.body;
     
-    // Calculate base_cost automatically (cost per single unit)
-    const base_cost = cost_per_unit / quantity;
+    // cost_per_unit is the TOTAL amount paid for all boxes
+    // box_count is how many boxes were purchased
+    // quantity is the quantity PER BOX
+    // Calculate cost per single box
+    const boxCount = box_count || 1;
+    const cost_per_box = cost_per_unit / boxCount;
+    
+    // Calculate base_cost: (cost_per_unit / box_count) / quantity
+    const base_cost = cost_per_box / quantity;
     
     const result = await pool.query(
       `UPDATE ingredients 
-       SET name = $1, cost_per_unit = $2, base_cost = $3, quantity = $4, unit_type = $5, 
-           vendor_id = $6, last_price_check = CURRENT_DATE, 
+       SET name = $1, cost_per_unit = $2, cost_per_box = $3, base_cost = $4, quantity = $5, unit_type = $6, 
+           vendor_id = $7, box_count = $8, last_price_check = CURRENT_DATE, 
            updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $7 RETURNING *`,
-      [name, cost_per_unit, base_cost, quantity, unit_type, vendor_id || null, id]
+       WHERE id = $9 RETURNING *`,
+      [name, cost_per_unit, cost_per_box, base_cost, quantity, unit_type, vendor_id || null, boxCount, id]
     );
     
     if (result.rows.length === 0) {

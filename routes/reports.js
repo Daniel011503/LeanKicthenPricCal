@@ -83,10 +83,11 @@ router.get('/dashboard', async (req, res) => {
         AVG(CAST(i.cost_per_unit AS DECIMAL)) as avg_ingredient_cost
       FROM vendors v
       LEFT JOIN ingredients i ON v.id = i.vendor_id
-      WHERE v.is_active = true
       GROUP BY v.id, v.name
       ORDER BY total_vendor_cost DESC
     `);
+    
+    console.log('🔍 Vendor analysis results:', vendorAnalysis.rows);
 
     const dashboardData = {
       highest_cost_recipes: highestCostRecipes.rows,

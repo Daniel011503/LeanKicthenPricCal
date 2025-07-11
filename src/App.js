@@ -17,7 +17,8 @@ function App() {
     cost_per_unit: '',
     quantity: '', // Added quantity field
     unit_type: '',
-    vendor_id: ''
+    vendor_id: '',
+    box_count: '1' // Number of boxes - defaults to 1
   });
 
   // Unit conversion function
@@ -318,7 +319,8 @@ function App() {
           cost_per_unit: '', 
           quantity: '', 
           unit_type: '',
-          vendor_id: ''
+          vendor_id: '',
+          box_count: '1'
         });
         alert('Ingredient added successfully!');
       } else {
@@ -748,16 +750,24 @@ function App() {
                 <h3 style={{ 
                   fontSize: '1.4rem', 
                   color: '#4a4a4a', // Dark grey text
-                  marginBottom: '20px',
+                  marginBottom: '10px',
                   display: 'flex',
                   alignItems: 'center'
                 }}>
                   ➕ Add New Ingredient
                 </h3>
+                <p style={{
+                  fontSize: '0.9rem',
+                  color: '#6c757d',
+                  marginBottom: '20px',
+                  fontStyle: 'italic'
+                }}>
+                  Example: 6 boxes of 3lb strawberries for $10.15 total → Total paid: $10.15, Qty per box: 3, Boxes: 6
+                </p>
                 <form onSubmit={handleAddIngredient}>
                   <div style={{ 
                     display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', // Adjusted for 5 fields
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', // Adjusted for 6 fields
                     gap: '15px', 
                     marginBottom: '20px' 
                   }}>
@@ -781,7 +791,7 @@ function App() {
                     <input
                       type="number"
                       step="0.01"
-                      placeholder="Total cost for the package ($)"
+                      placeholder="Total amount paid for all boxes ($)"
                       value={newIngredient.cost_per_unit}
                       onChange={(e) => setNewIngredient({...newIngredient, cost_per_unit: e.target.value})}
                       required
@@ -799,7 +809,7 @@ function App() {
                     <input
                       type="number"
                       step="0.01"
-                      placeholder="Quantity on hand"
+                      placeholder="Quantity (e.g., 3 for 3lb per box)"
                       value={newIngredient.quantity}
                       onChange={(e) => setNewIngredient({...newIngredient, quantity: e.target.value})}
                       required
@@ -833,6 +843,25 @@ function App() {
                       <option value="lb">Pounds (lb)</option>
                       <option value="cup">Cups</option>
                     </select>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="Number of boxes purchased"
+                      value={newIngredient.box_count}
+                      onChange={(e) => setNewIngredient({...newIngredient, box_count: e.target.value})}
+                      required
+                      style={{ 
+                        padding: '12px 16px', 
+                        borderRadius: '8px', 
+                        border: '2px solid #d3d3d3', // Light grey border
+                        fontSize: '16px',
+                        transition: 'border-color 0.3s ease',
+                        outline: 'none'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#DAA520'} // Gold focus
+                      onBlur={(e) => e.target.style.borderColor = '#d3d3d3'}
+                    />
                     <select
                       value={newIngredient.vendor_id}
                       onChange={(e) => setNewIngredient({...newIngredient, vendor_id: e.target.value})}
@@ -906,8 +935,8 @@ function App() {
                     {/* Header Row */}
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1.5fr auto',
-                      gap: '15px',
+                      gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.8fr 1.5fr auto',
+                      gap: '10px',
                       padding: '15px 20px',
                       backgroundColor: '#f5f5f5',
                       borderRadius: '8px',
@@ -917,10 +946,11 @@ function App() {
                       border: '2px solid #d3d3d3'
                     }}>
                       <div>INGREDIENT NAME</div>
-                      <div style={{ textAlign: 'center' }}>TOTAL COST</div>
-                      <div style={{ textAlign: 'center' }}>COST PER UNIT</div>
-                      <div style={{ textAlign: 'center' }}>QUANTITY</div>
+                      <div style={{ textAlign: 'center' }}>Total Paid</div>
+                      <div style={{ textAlign: 'center' }}>Base Cost</div>
+                      <div style={{ textAlign: 'center' }}>QTY</div>
                       <div style={{ textAlign: 'center' }}>UNIT TYPE</div>
+                      <div style={{ textAlign: 'center' }}>BOXES</div>
                       <div style={{ textAlign: 'center' }}>VENDOR</div>
                       <div style={{ textAlign: 'center' }}>ACTION</div>
                     </div>
@@ -930,8 +960,8 @@ function App() {
                         padding: '20px', 
                         borderRadius: '12px',
                         display: 'grid',
-                        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1.5fr auto',
-                        gap: '15px', // Reduced gap slightly for better fit
+                        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.8fr 1.5fr auto',
+                        gap: '10px', // Reduced gap for better fit with more columns
                         alignItems: 'center',
                         border: '2px solid #DAA520', // Gold border for ingredient items
                         transition: 'transform 0.2s ease, box-shadow 0.2s ease',
@@ -950,39 +980,26 @@ function App() {
                         </div>
                         <div style={{ textAlign: 'center' }}>
                           <span style={{ 
-                            color: '#228B22', // Forest green for cost
+                            color: '#B22222', // Red for total paid
+                            fontWeight: 'bold', 
+                            fontSize: '16px',
+                            backgroundColor: '#fff0f0', // Very light red background
+                            padding: '5px 10px',
+                            borderRadius: '15px'
+                          }}>
+                            ${parseFloat(ingredient.cost_per_unit || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <span style={{ 
+                            color: '#228B22', // Green for cost per unit
                             fontWeight: 'bold', 
                             fontSize: '16px',
                             backgroundColor: '#f0fff0', // Very light green background
                             padding: '5px 10px',
                             borderRadius: '15px'
                           }}>
-                            ${ingredient.cost_per_unit || ingredient.price_per_unit}
-                          </span>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <span style={{ 
-                            color: '#ff6b35', // Orange for base cost
-                            fontWeight: 'bold', 
-                            fontSize: '16px',
-                            backgroundColor: '#fff8f0', // Very light orange background
-                            padding: '5px 10px',
-                            borderRadius: '15px'
-                          }}>
-                            ${(() => {
-                              // Display base cost as the cost for one unit
-                              if (ingredient.base_cost && ingredient.base_cost !== '0.00') {
-                                return parseFloat(ingredient.base_cost).toFixed(2);
-                              }
-                              
-                              // If no stored base_cost, calculate it from cost_per_unit and quantity
-                              const totalCost = ingredient.cost_per_unit || ingredient.price_per_unit || 0;
-                              const quantity = ingredient.quantity || 1;
-                              
-                              // Base cost is total cost divided by quantity
-                              const baseCost = totalCost / quantity;
-                              return parseFloat(baseCost).toFixed(2);
-                            })()}
+                            ${parseFloat(ingredient.base_cost || 0).toFixed(2)}
                           </span>
                         </div>
                         <div style={{ textAlign: 'center' }}>
@@ -990,12 +1007,11 @@ function App() {
                             color: '#DAA520', // Gold for quantity
                             fontWeight: 'bold', 
                             fontSize: '16px',
-                            backgroundColor: ingredient.quantity < 5 ? '#fff3cd' : '#fffdf0', // Yellow background for low stock
+                            backgroundColor: '#fffdf0', // Light background
                             padding: '5px 10px',
-                            borderRadius: '15px',
-                            border: ingredient.quantity < 5 ? '2px solid #ffc107' : 'none' // Warning border for low stock
+                            borderRadius: '15px'
                           }}>
-                            {ingredient.quantity || '0'} {ingredient.quantity < 5 ? '⚠️' : ''}
+                            {ingredient.quantity || '0'}
                           </span>
                         </div>
                         <div style={{ textAlign: 'center' }}>
@@ -1007,6 +1023,18 @@ function App() {
                             fontSize: '14px'
                           }}>
                             {ingredient.unit_type || ingredient.unit}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <span style={{ 
+                            color: '#8B4513', // Brown for box count
+                            backgroundColor: '#faf3e0', // Light brown background
+                            padding: '5px 10px',
+                            borderRadius: '15px',
+                            fontSize: '14px',
+                            fontWeight: '600'
+                          }}>
+                            {ingredient.box_count || 1}
                           </span>
                         </div>
                         <div style={{ textAlign: 'center' }}>
