@@ -10,6 +10,8 @@ function App() {
   const [reportsData, setReportsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('reports');
+  const [ingredientSearch, setIngredientSearch] = useState(''); // Search state for ingredients
+  const [reportsLoading, setReportsLoading] = useState(false); // Loading state for reports refresh
   
   // New ingredient form
   const [newIngredient, setNewIngredient] = useState({
@@ -153,11 +155,20 @@ function App() {
     }));
   };
 
-  // Calculate total recipe cost including packaging
+  // Calculate total recipe cost including packaging for all servings
   const calculateTotalRecipeCost = () => {
     const ingredientsCost = newRecipe.ingredients.reduce((total, ingredient) => total + ingredient.cost, 0);
     const packagingCost = newRecipe.packaging.reduce((total, pkg) => total + pkg.cost, 0);
-    return ingredientsCost + packagingCost;
+    const costPerServing = ingredientsCost + packagingCost;
+    const servings = parseFloat(newRecipe.servings) || 1;
+    return costPerServing * servings; // Total cost for all servings
+  };
+
+  // Calculate cost per single serving
+  const calculateCostPerServing = () => {
+    const ingredientsCost = newRecipe.ingredients.reduce((total, ingredient) => total + ingredient.cost, 0);
+    const packagingCost = newRecipe.packaging.reduce((total, pkg) => total + pkg.cost, 0);
+    return ingredientsCost + packagingCost; // Cost for one serving
   };
 
   // New recipe form
@@ -339,11 +350,11 @@ function App() {
     console.log('Creating recipe with data:', {
       ...newRecipe,
       total_recipe_cost: calculateTotalRecipeCost().toFixed(2),
-      cost_per_serving: newRecipe.servings ? (calculateTotalRecipeCost() / parseFloat(newRecipe.servings)).toFixed(2) : '0.00'
+      cost_per_serving: calculateCostPerServing().toFixed(2)
     });
     
-    const totalCost = calculateTotalRecipeCost();
-    const costPerServing = newRecipe.servings ? (totalCost / parseFloat(newRecipe.servings)).toFixed(2) : '0.00';
+    const totalCost = calculateTotalRecipeCost(); // Total cost for all servings
+    const costPerServing = calculateCostPerServing().toFixed(2); // Cost for one serving
     
     const recipeData = {
       name: newRecipe.name,
@@ -561,6 +572,7 @@ function App() {
   // Fetch reports data
   const fetchReportsData = async () => {
     try {
+      setReportsLoading(true);
       const response = await fetch('http://localhost:5000/api/reports/dashboard');
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -570,15 +582,44 @@ function App() {
     } catch (error) {
       console.error('Error fetching reports data:', error);
       alert('Error fetching reports data: ' + error.message);
+    } finally {
+      setReportsLoading(false);
     }
   };
 
-  // Load reports data when tab is selected
+  // Load reports data when tab is selected and set up auto-refresh
   useEffect(() => {
-    if (activeTab === 'reports' && !reportsData) {
+    if (activeTab === 'reports') {
+      // Fetch immediately when tab is selected
+      fetchReportsData();
+      
+      // Set up auto-refresh every 30 seconds when on reports tab
+      const interval = setInterval(() => {
+        fetchReportsData();
+      }, 30000); // 30 seconds
+      
+      // Cleanup interval when tab changes or component unmounts
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
+
+  // Refresh reports when ingredients, recipes, or vendors change
+  useEffect(() => {
+    if (activeTab === 'reports') {
       fetchReportsData();
     }
-  }, [activeTab, reportsData]);
+  }, [ingredients.length, recipes.length, vendors.length, packing.length]);
+
+  // Filter ingredients based on search term
+  const filteredIngredients = ingredients.filter(ingredient => {
+    if (!ingredientSearch) return true;
+    const searchTerm = ingredientSearch.toLowerCase();
+    return (
+      ingredient.name.toLowerCase().includes(searchTerm) ||
+      ingredient.unit_type?.toLowerCase().includes(searchTerm) ||
+      ingredient.vendor_name?.toLowerCase().includes(searchTerm)
+    );
+  });
 
   return (
     <div style={{ 
@@ -923,14 +964,76 @@ function App() {
                   display: 'flex',
                   alignItems: 'center'
                 }}>
-                  📋 Current Ingredients ({ingredients.length})
+                  📋 Current Ingredients ({filteredIngredients.length} of {ingredients.length})
                 </h3>
+                
+                {/* Search Bar */}
+                <div style={{ 
+                  marginBottom: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <div style={{ 
+                    position: 'relative',
+                    flexGrow: 1,
+                    maxWidth: '400px'
+                  }}>
+                    <span style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: '#6c757d',
+                      fontSize: '16px'
+                    }}>
+                      🔍
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Search ingredients by name, unit, or vendor..."
+                      value={ingredientSearch}
+                      onChange={(e) => setIngredientSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 12px 12px 40px',
+                        borderRadius: '8px',
+                        border: '2px solid #d3d3d3',
+                        fontSize: '16px',
+                        outline: 'none',
+                        transition: 'border-color 0.2s ease',
+                        backgroundColor: '#fff'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#DAA520'}
+                      onBlur={(e) => e.target.style.borderColor = '#d3d3d3'}
+                    />
+                  </div>
+                  {ingredientSearch && (
+                    <button
+                      onClick={() => setIngredientSearch('')}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#6c757d',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#5a6268'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = '#6c757d'}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 {loading ? (
                   <div style={{ textAlign: 'center', padding: '40px', color: '#6c757d' }}>
                     <div style={{ fontSize: '24px', marginBottom: '10px' }}>🔄</div>
                     Loading ingredients...
                   </div>
-                ) : ingredients.length > 0 ? (
+                ) : filteredIngredients.length > 0 ? (
                   <div style={{ display: 'grid', gap: '15px' }}>
                     {/* Header Row */}
                     <div style={{
@@ -954,7 +1057,7 @@ function App() {
                       <div style={{ textAlign: 'center' }}>VENDOR</div>
                       <div style={{ textAlign: 'center' }}>ACTION</div>
                     </div>
-                    {ingredients.map((ingredient, index) => (
+                    {filteredIngredients.map((ingredient, index) => (
                       <div key={index} style={{ 
                         backgroundColor: '#ffffff', // Pure white background
                         padding: '20px', 
@@ -1095,8 +1198,32 @@ function App() {
                     borderRadius: '12px',
                     border: '2px dashed #DAA520' // Gold dashed border
                   }}>
-                    <div style={{ fontSize: '48px', marginBottom: '15px' }}>🥘</div>
-                    <p style={{ fontSize: '18px', margin: '0' }}>No ingredients found. Add some ingredients to get started!</p>
+                    <div style={{ fontSize: '48px', marginBottom: '15px' }}>
+                      {ingredientSearch ? '🔍' : '🥘'}
+                    </div>
+                    <p style={{ fontSize: '18px', margin: '0' }}>
+                      {ingredientSearch 
+                        ? `No ingredients found matching "${ingredientSearch}". Try a different search term.`
+                        : 'No ingredients found. Add some ingredients to get started!'
+                      }
+                    </p>
+                    {ingredientSearch && (
+                      <button
+                        onClick={() => setIngredientSearch('')}
+                        style={{
+                          marginTop: '15px',
+                          padding: '8px 16px',
+                          backgroundColor: '#DAA520',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        Clear Search
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1530,7 +1657,7 @@ function App() {
                                 fontSize: '14px',
                                 color: '#155724',
                                 marginBottom: '5px'
-                              }}>                              <span>Ingredients Cost:</span>
+                              }}>                              <span>Ingredients Cost (per serving):</span>
                               <span>${newRecipe.ingredients.reduce((total, ingredient) => total + ingredient.cost, 0).toFixed(2)}</span>
                             </div>
                             {newRecipe.packaging.length > 0 && (
@@ -1542,12 +1669,12 @@ function App() {
                                 color: '#8B4513',
                                 marginBottom: '5px'
                               }}>
-                                <span>Packaging Cost:</span>
+                                <span>Packaging Cost (per serving):</span>
                                 <span>${newRecipe.packaging.reduce((total, pkg) => total + pkg.cost, 0).toFixed(2)}</span>
                               </div>
                             )}
                               <hr style={{ margin: '8px 0', border: '1px solid #228B22' }} />
-                              <span>Total Recipe Cost:</span>
+                              <span>Total Recipe Cost (all servings):</span>
                               <span>${calculateTotalRecipeCost().toFixed(2)}</span>
                             </div>
                             {newRecipe.servings && (
@@ -1560,7 +1687,7 @@ function App() {
                                 color: '#155724'
                               }}>
                                 <span>Cost Per Serving:</span>
-                                <span>${(calculateTotalRecipeCost() / parseFloat(newRecipe.servings)).toFixed(2)}</span>
+                                <span>${calculateCostPerServing().toFixed(2)}</span>
                               </div>
                             )}
                           </div>
@@ -2181,11 +2308,46 @@ function App() {
               <h2 style={{ 
                 fontSize: '1.8rem', 
                 color: '#4a4a4a',
-                marginBottom: '30px',
+                marginBottom: '10px',
                 textAlign: 'center'
               }}>
                 📊 Business Reports Dashboard
               </h2>
+              
+              <div style={{ 
+                textAlign: 'center', 
+                marginBottom: '30px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '15px'
+              }}>
+                <button 
+                  onClick={fetchReportsData}
+                  disabled={reportsLoading}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: reportsLoading ? '#ccc' : '#8A2BE2',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: reportsLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  {reportsLoading ? '🔄 Refreshing...' : '🔄 Refresh Now'}
+                </button>
+                <div style={{ 
+                  fontSize: '12px', 
+                  color: '#666',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}>
+                  <span>🕐 Auto-refresh: 30s</span>
+                  {reportsLoading && <span style={{ color: '#8A2BE2' }}>● Updating...</span>}
+                </div>
+              </div>
 
               {reportsData ? (
                 <div style={{ 
@@ -2286,7 +2448,7 @@ function App() {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                     border: '2px solid #ffc107'
                   }}>
-                    <h3 style={{ color: '#e68900', marginBottom: '15px' }}>� Profit Metrics</h3>
+                    <h3 style={{ color: '#e68900', marginBottom: '15px' }}>💰 Profit Metrics</h3>
                     <p><strong>Avg Profit Margin:</strong> {parseFloat(reportsData.average_profit_margin?.avg_profit_margin_percent || 0).toFixed(2)}%</p>
                     <p><strong>Total Cost (All):</strong> ${parseFloat(reportsData.recipe_statistics?.total_cost_all_recipes || 0).toFixed(2)}</p>
                   </div>
@@ -2300,20 +2462,23 @@ function App() {
                     border: '2px solid #6f42c1'
                   }}>
                     <h3 style={{ color: '#6f42c1', marginBottom: '15px' }}>🏪 Vendor Analysis</h3>
-                    {reportsData.vendor_analysis && reportsData.vendor_analysis.length > 0 ? (
-                      reportsData.vendor_analysis.map((vendor, index) => (
-                        <div key={vendor.vendor_name || index} style={{ marginBottom: '10px' }}>
-                          <strong>{vendor.vendor_name || 'No Vendor'}</strong>
-                          <br />
-                          <span style={{ color: '#666' }}>
-                            Ingredients: {vendor.ingredient_count} | 
-                            Avg Cost: ${parseFloat(vendor.avg_ingredient_cost || 0).toFixed(2)}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <p>No vendor data available</p>
-                    )}
+                    {(() => {
+                      const vendorsWithIngredients = reportsData.vendor_analysis?.filter(vendor => vendor.ingredient_count > 0) || [];
+                      return vendorsWithIngredients.length > 0 ? (
+                        vendorsWithIngredients.map((vendor, index) => (
+                          <div key={vendor.vendor_name || index} style={{ marginBottom: '10px' }}>
+                            <strong>{vendor.vendor_name || 'No Vendor'}</strong>
+                            <br />
+                            <span style={{ color: '#666' }}>
+                              Ingredients: {vendor.ingredient_count} | 
+                              Avg Cost: ${parseFloat(vendor.avg_ingredient_cost || 0).toFixed(2)}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p>No vendor data available</p>
+                      );
+                    })()}
                   </div>
                 </div>
               ) : (
@@ -2327,18 +2492,26 @@ function App() {
                   <p>Loading reports data...</p>
                   <button 
                     onClick={fetchReportsData}
+                    disabled={reportsLoading}
                     style={{
                       padding: '10px 20px',
-                      backgroundColor: '#8A2BE2',
+                      backgroundColor: reportsLoading ? '#ccc' : '#8A2BE2',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
-                      cursor: 'pointer',
+                      cursor: reportsLoading ? 'not-allowed' : 'pointer',
                       marginTop: '10px'
                     }}
                   >
-                    Refresh Reports
+                    {reportsLoading ? '🔄 Refreshing...' : '🔄 Refresh Reports'}
                   </button>
+                  <div style={{ 
+                    marginTop: '10px', 
+                    fontSize: '12px', 
+                    color: '#666' 
+                  }}>
+                    Auto-refreshes every 30 seconds
+                  </div>
                 </div>
               )}
             </div>
