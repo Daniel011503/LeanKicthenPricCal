@@ -99,34 +99,54 @@ router.post('/', validateRecipe, async (req, res) => {
 
     await client.query('BEGIN');
     
-    const { 
-      name, 
-      servings, 
+    const {
+      name,
+      servings,
       total_recipe_cost,
       cost_per_serving,
+      selling_price_per_serving,
       recipe_ingredients,
       recipe_packaging
     } = req.body;
-    
-    console.log('💰 Cost values received:', { 
-      total_recipe_cost, 
+
+    // Calculate total_revenue and profit_margin if possible
+    const parsedServings = servings ? parseFloat(servings) : 0;
+    const parsedSellingPrice = selling_price_per_serving ? parseFloat(selling_price_per_serving) : 0;
+    const parsedTotalCost = total_recipe_cost ? parseFloat(total_recipe_cost) : 0;
+    const total_revenue = (parsedServings > 0 && parsedSellingPrice > 0)
+      ? (parsedServings * parsedSellingPrice)
+      : 0;
+    const profit_margin = (total_revenue > 0 && parsedTotalCost >= 0)
+      ? (((total_revenue - parsedTotalCost) / total_revenue) * 100)
+      : 0;
+
+    console.log('💰 Cost and revenue values calculated:', {
+      total_recipe_cost,
       cost_per_serving,
-      total_recipe_cost_parsed: total_recipe_cost ? parseFloat(total_recipe_cost) : 0,
-      cost_per_serving_parsed: cost_per_serving ? parseFloat(cost_per_serving) : 0
+      selling_price_per_serving,
+      total_revenue,
+      profit_margin
     });
 
     // Insert recipe
     const insertValues = [
-      name, 
-      servings, 
-      total_recipe_cost ? parseFloat(total_recipe_cost) : 0, 
-      cost_per_serving ? parseFloat(cost_per_serving) : 0
+      name,
+      servings,
+      parsedTotalCost,
+      cost_per_serving ? parseFloat(cost_per_serving) : 0,
+      parsedSellingPrice,
+      total_revenue,
+      profit_margin
     ];
-    
-    console.log('📝 INSERT values:', insertValues);
-    
+
+    console.log('📝 INSERT values with types:', insertValues.map((val, i) => ({
+      index: i,
+      value: val,
+      type: typeof val
+    })));
+
     const recipeResult = await client.query(
-      'INSERT INTO recipes (name, servings, total_recipe_cost, cost_per_serving) VALUES ($1, $2, $3, $4) RETURNING *',
+      'INSERT INTO recipes (name, servings, total_recipe_cost, cost_per_serving, selling_price_per_serving, total_revenue, profit_margin) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
       insertValues
     );
     

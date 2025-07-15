@@ -27,9 +27,9 @@ router.get('/dashboard', async (req, res) => {
         servings,
         total_recipe_cost,
         cost_per_serving,
-        CAST(total_recipe_cost AS DECIMAL) * 3 as estimated_revenue,
-        (CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL) as estimated_profit,
-        ROUND(((CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) / (CAST(total_recipe_cost AS DECIMAL) * 3) * 100, 2) as profit_margin_percent
+        COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) as estimated_revenue,
+        COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL) as estimated_profit,
+        COALESCE(profit_margin, ROUND(((COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) / COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3)) * 100, 2)) as profit_margin_percent
       FROM recipes 
       WHERE total_recipe_cost IS NOT NULL AND total_recipe_cost != '0'
       ORDER BY estimated_profit DESC 
@@ -39,7 +39,7 @@ router.get('/dashboard', async (req, res) => {
     // Calculate average profit margin
     const avgProfitMargin = await pool.query(`
       SELECT 
-        ROUND(AVG(((CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) / (CAST(total_recipe_cost AS DECIMAL) * 3) * 100), 2) as avg_profit_margin_percent,
+        ROUND(AVG(COALESCE(profit_margin, ((COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) / COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) * 100))), 2) as avg_profit_margin,
         COUNT(*) as total_recipes
       FROM recipes 
       WHERE total_recipe_cost IS NOT NULL AND total_recipe_cost != '0'
@@ -51,8 +51,21 @@ router.get('/dashboard', async (req, res) => {
         DATE_TRUNC('week', created_at) as week_start,
         COUNT(*) as recipes_created,
         SUM(CAST(total_recipe_cost AS DECIMAL)) as total_cost,
-        SUM(CAST(total_recipe_cost AS DECIMAL) * 3) as estimated_revenue,
-        SUM((CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) as estimated_profit
+        SUM(CASE 
+          WHEN total_revenue IS NOT NULL AND total_revenue > 0 
+          THEN CAST(total_revenue AS DECIMAL)
+          ELSE CAST(total_recipe_cost AS DECIMAL) * 3
+        END) as total_revenue,
+        SUM(CASE 
+          WHEN total_revenue IS NOT NULL AND total_revenue > 0 
+          THEN CAST(total_revenue AS DECIMAL) - CAST(total_recipe_cost AS DECIMAL)
+          ELSE (CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)
+        END) as total_profit,
+        AVG(CASE 
+          WHEN profit_margin IS NOT NULL AND profit_margin > 0 
+          THEN CAST(profit_margin AS DECIMAL)
+          ELSE ((CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) / (CAST(total_recipe_cost AS DECIMAL) * 3) * 100
+        END) as avg_profit_margin
       FROM recipes 
       WHERE 
         created_at >= NOW() - INTERVAL '4 weeks'
