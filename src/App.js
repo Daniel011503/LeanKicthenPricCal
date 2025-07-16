@@ -1383,13 +1383,6 @@ function App() {
                       onFocus={(e) => e.target.style.borderColor = '#228B22'}
                       onBlur={(e) => e.target.style.borderColor = '#d3d3d3'}
                     />
-                    <div style={{ fontSize: '14px', color: '#228B22', marginTop: '-10px', marginBottom: '10px' }}>
-                      {newRecipe.target_profit_margin && !isNaN(parseFloat(newRecipe.target_profit_margin)) && parseFloat(newRecipe.target_profit_margin) > 0 && parseFloat(newRecipe.target_profit_margin) < 100 && (
-                        <>
-                          Suggested price per serving for {parseFloat(newRecipe.target_profit_margin).toFixed(1)}% margin: <b>${calculateSuggestedPricePerServing()}</b>
-                        </>
-                      )}
-                    </div>
                     <input
                       type="number"
                       step="0.01"
@@ -1870,6 +1863,21 @@ function App() {
                       )}
                     </div>
                   </div>
+                  {newRecipe.target_profit_margin && !isNaN(parseFloat(newRecipe.target_profit_margin)) && (
+                    <div style={{
+                      background: 'linear-gradient(90deg, #ffe066 0%, #ffd700 100%)',
+                      color: '#8B4513',
+                      fontWeight: 'bold',
+                      fontSize: '1.3rem',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      marginBottom: '8px',
+                      textAlign: 'center',
+                      boxShadow: '0 2px 8px rgba(255, 215, 0, 0.15)'
+                    }}>
+                      Suggested price per serving for {parseFloat(newRecipe.target_profit_margin).toFixed(1)}% margin: <span style={{fontSize: '1.5rem', color: '#b8860b'}}>${calculateSuggestedPricePerServing()}</span>
+                    </div>
+                  )}
                   <button type="submit" style={{ 
                     padding: '12px 30px', 
                     backgroundColor: '#228B22', // Forest green
@@ -1898,6 +1906,7 @@ function App() {
               {/* Recipes List */}
               <div style={{ 
                 backgroundColor: '#ffffff', 
+                
                 padding: '30px', 
                 borderRadius: '15px',
                 boxShadow: '0 8px 25px rgba(0,0,0,0.1)',
