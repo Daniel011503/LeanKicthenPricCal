@@ -8,6 +8,7 @@ function App() {
   const [packing, setPacking] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [reportsData, setReportsData] = useState(null);
+  const [selectedWeek, setSelectedWeek] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('reports');
   const [ingredientSearch, setIngredientSearch] = useState(''); // Search state for ingredients
@@ -213,9 +214,20 @@ function App() {
     name: '',
     servings: '',
     selling_price_per_serving: '', // Revenue per serving
+    target_profit_margin: '', // Target profit margin (%)
     ingredients: [], // Array of {ingredient_id, quantity, unit, cost}
     packaging: [] // Array of {packaging_id, packaging_name, quantity, cost}
   });
+  // Calculate suggested price per serving for a target margin
+  const calculateSuggestedPricePerServing = () => {
+    const costPerServing = calculateCostPerServing();
+    const targetMargin = parseFloat(newRecipe.target_profit_margin);
+    if (isNaN(targetMargin) || targetMargin <= 0 || targetMargin >= 100) return '';
+    // Formula: price = cost / (1 - margin)
+    const price = costPerServing / (1 - targetMargin / 100);
+    if (!isFinite(price) || price <= 0) return '';
+    return price.toFixed(2);
+  };
 
   // Recipe ingredient form
   const [recipeIngredient, setRecipeIngredient] = useState({
@@ -400,6 +412,8 @@ function App() {
       total_recipe_cost: totalCost.toFixed(2),
       cost_per_serving: costPerServing,
       selling_price_per_serving: parseFloat(newRecipe.selling_price_per_serving) || 0,
+      target_profit_margin: newRecipe.target_profit_margin,
+      suggested_price_per_serving: calculateSuggestedPricePerServing(),
       total_revenue: calculateTotalRevenue().toFixed(2),
       profit_margin: calculateProfitMargin().toFixed(2),
       recipe_ingredients: newRecipe.ingredients || [],
@@ -432,6 +446,7 @@ function App() {
           name: '', 
           servings: '', 
           selling_price_per_serving: '',
+          target_profit_margin: '',
           ingredients: [],
           packaging: []
         });
@@ -616,18 +631,26 @@ function App() {
   };
 
   // Fetch reports data
-  const fetchReportsData = async () => {
+  const fetchReportsData = async (week = '') => {
+    setReportsLoading(true);
     try {
-      setReportsLoading(true);
-      const response = await fetch('http://localhost:5000/api/reports/dashboard');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      let weekParam = '';
+      if (week && typeof week === 'object' && week instanceof Date) {
+        // Convert Date object to YYYY-MM-DD string
+        weekParam = week.toISOString().slice(0, 10);
+      } else if (typeof week === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(week)) {
+        weekParam = week;
       }
+      const url = weekParam
+        ? `http://localhost:5000/api/reports/dashboard?week=${encodeURIComponent(weekParam)}`
+        : 'http://localhost:5000/api/reports/dashboard';
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       setReportsData(data);
     } catch (error) {
       console.error('Error fetching reports data:', error);
-      alert('Error fetching reports data: ' + error.message);
+      setReportsData(null);
     } finally {
       setReportsLoading(false);
     }
@@ -637,11 +660,11 @@ function App() {
   useEffect(() => {
     if (activeTab === 'reports') {
       // Fetch immediately when tab is selected
-      fetchReportsData();
+      fetchReportsData(selectedWeek);
       
       // Set up auto-refresh every 30 seconds when on reports tab
       const interval = setInterval(() => {
-        fetchReportsData();
+        fetchReportsData(selectedWeek);
       }, 30000); // 30 seconds
       
       // Cleanup interval when tab changes or component unmounts
@@ -652,7 +675,7 @@ function App() {
   // Refresh reports when ingredients, recipes, or vendors change
   useEffect(() => {
     if (activeTab === 'reports') {
-      fetchReportsData();
+      fetchReportsData(selectedWeek);
     }
   }, [ingredients.length, recipes.length, vendors.length, packing.length]);
 
@@ -1343,6 +1366,32 @@ function App() {
                     />
                     <input
                       type="number"
+                      step="0.1"
+                      min="1"
+                      max="99"
+                      placeholder="Target profit margin (%)"
+                      value={newRecipe.target_profit_margin}
+                      onChange={(e) => setNewRecipe({...newRecipe, target_profit_margin: e.target.value})}
+                      style={{ 
+                        padding: '12px 16px', 
+                        borderRadius: '8px', 
+                        border: '2px solid #d3d3d3',
+                        fontSize: '16px',
+                        transition: 'border-color 0.3s ease',
+                        outline: 'none'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#228B22'}
+                      onBlur={(e) => e.target.style.borderColor = '#d3d3d3'}
+                    />
+                    <div style={{ fontSize: '14px', color: '#228B22', marginTop: '-10px', marginBottom: '10px' }}>
+                      {newRecipe.target_profit_margin && !isNaN(parseFloat(newRecipe.target_profit_margin)) && parseFloat(newRecipe.target_profit_margin) > 0 && parseFloat(newRecipe.target_profit_margin) < 100 && (
+                        <>
+                          Suggested price per serving for {parseFloat(newRecipe.target_profit_margin).toFixed(1)}% margin: <b>${calculateSuggestedPricePerServing()}</b>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="number"
                       step="0.01"
                       placeholder="Selling price per serving ($)"
                       value={newRecipe.selling_price_per_serving}
@@ -2003,21 +2052,29 @@ function App() {
                             textAlign: 'center',
                             border: `2px solid ${recipe.profit_margin >= 0 ? '#32CD32' : '#DC143C'}` // Green if profit, red if loss
                           }}>
-                            <div style={{ fontSize: '12px', color: recipe.profit_margin >= 0 ? '#32CD32' : '#DC143C', marginBottom: '5px' }}>PROFIT MARGIN</div>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: recipe.profit_margin >= 0 ? '#32CD32' : '#DC143C' }}>
-                              {
-                                recipe.profit_margin !== undefined && !isNaN(parseFloat(recipe.profit_margin))
-                                  ? `${parseFloat(recipe.profit_margin).toFixed(1)}%`
-                                  : (!isNaN(parseFloat(recipe.selling_price_per_serving)) && !isNaN(parseFloat(recipe.servings)) && !isNaN(parseFloat(recipe.total_recipe_cost)))
-                                    ? (() => {
-                                        const totalRevenue = parseFloat(recipe.selling_price_per_serving) * parseFloat(recipe.servings);
-                                        const totalCost = parseFloat(recipe.total_recipe_cost);
-                                        if (totalRevenue === 0) return '0.0%';
-                                        return `${(((totalRevenue - totalCost) / totalRevenue) * 100).toFixed(1)}%`;
-                                      })()
-                                    : '0.0%'
-                              }
-                            </div>
+                          <div style={{ fontSize: '12px', color: recipe.profit_margin >= 0 ? '#32CD32' : '#DC143C', marginBottom: '5px' }}>PROFIT MARGIN</div>
+                          <div style={{ fontSize: '18px', fontWeight: 'bold', color: recipe.profit_margin >= 0 ? '#32CD32' : '#DC143C' }}>
+                            {
+                              recipe.profit_margin !== undefined && !isNaN(parseFloat(recipe.profit_margin))
+                                ? `${parseFloat(recipe.profit_margin).toFixed(1)}%`
+                                : (!isNaN(parseFloat(recipe.selling_price_per_serving)) && !isNaN(parseFloat(recipe.servings)) && !isNaN(parseFloat(recipe.total_recipe_cost)))
+                                  ? (() => {
+                                      const totalRevenue = parseFloat(recipe.selling_price_per_serving) * parseFloat(recipe.servings);
+                                      const totalCost = parseFloat(recipe.total_recipe_cost);
+                                      if (totalRevenue === 0) return '0.0%';
+                                      return `${(((totalRevenue - totalCost) / totalRevenue) * 100).toFixed(1)}%`;
+                                    })()
+                                  : '0.0%'
+                            }
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#228B22', marginTop: '5px' }}>
+                            {recipe.target_profit_margin && !isNaN(parseFloat(recipe.target_profit_margin)) && (
+                              <>Target: <b>{parseFloat(recipe.target_profit_margin).toFixed(1)}%</b></>
+                            )}
+                            {recipe.suggested_price_per_serving && !isNaN(parseFloat(recipe.suggested_price_per_serving)) && (
+                              <><br/>Suggested price: <b>${parseFloat(recipe.suggested_price_per_serving).toFixed(2)}</b></>
+                            )}
+                          </div>
                           </div>
                         </div>
                       </div>
@@ -2609,8 +2666,31 @@ function App() {
                     padding: '20px',
                     borderRadius: '15px',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                    border: '2px solid #17a2b8'
+                    border: '2px solid #17a2b8',
+                    marginBottom: '20px'
                   }}>
+                    <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <label htmlFor="weekPicker" style={{ fontWeight: 'bold', color: '#17a2b8' }}>Select Week:</label>
+                      <input
+                        id="weekPicker"
+                        type="date"
+                        value={selectedWeek}
+                        onChange={e => {
+                          setSelectedWeek(e.target.value);
+                          fetchReportsData(e.target.value);
+                        }}
+                        style={{ padding: '5px', borderRadius: '5px', border: '1px solid #17a2b8' }}
+                      />
+                      <button
+                        onClick={() => {
+                          setSelectedWeek('');
+                          fetchReportsData('');
+                        }}
+                        style={{ marginLeft: '10px', padding: '5px 10px', borderRadius: '5px', border: '1px solid #aaa', background: '#f8f9fa', cursor: 'pointer' }}
+                      >
+                        Clear
+                      </button>
+                    </div>
                     <h3 style={{ color: '#17a2b8', marginBottom: '15px' }}>📅 Weekly Cost vs Revenue Analysis</h3>
                     {reportsData.weekly_analysis && reportsData.weekly_analysis.length > 0 ? (
                       reportsData.weekly_analysis.map((week, index) => (

@@ -6,7 +6,16 @@ const router = express.Router();
 router.get('/dashboard', async (req, res) => {
   try {
     console.log('📊 Generating dashboard summary...');
-    
+    let { week } = req.query;
+    let weekFilter = '';
+    let weekParams = [];
+    if (typeof week === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(week)) {
+      // week is a string in YYYY-MM-DD format
+      weekFilter = ` AND DATE_TRUNC('week', created_at) = DATE_TRUNC('week', $1::date)`;
+      weekParams = [week];
+    } else {
+      week = undefined;
+    }
     // Get highest cost recipes
     const highestCostRecipes = await pool.query(`
       SELECT 
@@ -29,10 +38,19 @@ router.get('/dashboard', async (req, res) => {
         cost_per_serving,
         COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) as estimated_revenue,
         COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL) as estimated_profit,
-        COALESCE(profit_margin, ROUND(((COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) / COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3)) * 100, 2)) as profit_margin_percent
+        COALESCE(
+          profit_margin,
+          CASE 
+            WHEN COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) > 0 
+            THEN ROUND(((COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) / COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3)) * 100, 2)
+            ELSE 0
+          END
+        ) as profit_margin_percent
       FROM recipes 
-      WHERE total_recipe_cost IS NOT NULL AND total_recipe_cost != '0'
-      ORDER BY estimated_profit DESC 
+      WHERE 
+        total_recipe_cost IS NOT NULL AND total_recipe_cost != '0'
+        AND COALESCE(total_revenue, CAST(total_recipe_cost AS DECIMAL) * 3) > 0
+      ORDER BY profit_margin_percent DESC 
       LIMIT 5
     `);
 
@@ -46,34 +64,65 @@ router.get('/dashboard', async (req, res) => {
     `);
 
     // Weekly cost and revenue analysis (last 4 weeks)
-    const weeklyAnalysis = await pool.query(`
-      SELECT 
-        DATE_TRUNC('week', created_at) as week_start,
-        COUNT(*) as recipes_created,
-        SUM(CAST(total_recipe_cost AS DECIMAL)) as total_cost,
-        SUM(CASE 
-          WHEN total_revenue IS NOT NULL AND total_revenue > 0 
-          THEN CAST(total_revenue AS DECIMAL)
-          ELSE CAST(total_recipe_cost AS DECIMAL) * 3
-        END) as total_revenue,
-        SUM(CASE 
-          WHEN total_revenue IS NOT NULL AND total_revenue > 0 
-          THEN CAST(total_revenue AS DECIMAL) - CAST(total_recipe_cost AS DECIMAL)
-          ELSE (CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)
-        END) as total_profit,
-        AVG(CASE 
-          WHEN profit_margin IS NOT NULL AND profit_margin > 0 
-          THEN CAST(profit_margin AS DECIMAL)
-          ELSE ((CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) / (CAST(total_recipe_cost AS DECIMAL) * 3) * 100
-        END) as avg_profit_margin
-      FROM recipes 
-      WHERE 
-        created_at >= NOW() - INTERVAL '4 weeks'
-        AND total_recipe_cost IS NOT NULL 
-        AND total_recipe_cost != '0'
-      GROUP BY DATE_TRUNC('week', created_at)
-      ORDER BY week_start DESC
-    `);
+    let weeklyAnalysis;
+    if (week) {
+      // Only fetch the selected week
+      weeklyAnalysis = await pool.query(`
+        SELECT 
+          DATE_TRUNC('week', created_at) as week_start,
+          COUNT(*) as recipes_created,
+          SUM(CAST(total_recipe_cost AS DECIMAL)) as total_cost,
+          SUM(CASE 
+            WHEN total_revenue IS NOT NULL AND total_revenue > 0 
+            THEN CAST(total_revenue AS DECIMAL)
+            ELSE CAST(total_recipe_cost AS DECIMAL) * 3
+          END) as total_revenue,
+          SUM(CASE 
+            WHEN total_revenue IS NOT NULL AND total_revenue > 0 
+            THEN CAST(total_revenue AS DECIMAL) - CAST(total_recipe_cost AS DECIMAL)
+            ELSE (CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)
+          END) as total_profit,
+          AVG(CASE 
+            WHEN profit_margin IS NOT NULL AND profit_margin > 0 
+            THEN CAST(profit_margin AS DECIMAL)
+            ELSE ((CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) / (CAST(total_recipe_cost AS DECIMAL) * 3) * 100
+          END) as avg_profit_margin
+        FROM recipes 
+        WHERE total_recipe_cost IS NOT NULL AND total_recipe_cost != '0' ${weekFilter}
+        GROUP BY DATE_TRUNC('week', created_at)
+        ORDER BY week_start DESC
+      `, weekParams);
+    } else {
+      // Default: last 4 weeks
+      weeklyAnalysis = await pool.query(`
+        SELECT 
+          DATE_TRUNC('week', created_at) as week_start,
+          COUNT(*) as recipes_created,
+          SUM(CAST(total_recipe_cost AS DECIMAL)) as total_cost,
+          SUM(CASE 
+            WHEN total_revenue IS NOT NULL AND total_revenue > 0 
+            THEN CAST(total_revenue AS DECIMAL)
+            ELSE CAST(total_recipe_cost AS DECIMAL) * 3
+          END) as total_revenue,
+          SUM(CASE 
+            WHEN total_revenue IS NOT NULL AND total_revenue > 0 
+            THEN CAST(total_revenue AS DECIMAL) - CAST(total_recipe_cost AS DECIMAL)
+            ELSE (CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)
+          END) as total_profit,
+          AVG(CASE 
+            WHEN profit_margin IS NOT NULL AND profit_margin > 0 
+            THEN CAST(profit_margin AS DECIMAL)
+            ELSE ((CAST(total_recipe_cost AS DECIMAL) * 3) - CAST(total_recipe_cost AS DECIMAL)) / (CAST(total_recipe_cost AS DECIMAL) * 3) * 100
+          END) as avg_profit_margin
+        FROM recipes 
+        WHERE 
+          created_at >= NOW() - INTERVAL '4 weeks'
+          AND total_recipe_cost IS NOT NULL 
+          AND total_recipe_cost != '0'
+        GROUP BY DATE_TRUNC('week', created_at)
+        ORDER BY week_start DESC
+      `);
+    }
 
     // Recipe count and cost breakdown
     const recipeStats = await pool.query(`
@@ -163,7 +212,7 @@ router.get('/most-profitable-recipes', async (req, res) => {
         created_at
       FROM recipes 
       WHERE total_recipe_cost IS NOT NULL AND total_recipe_cost != '0'
-      ORDER BY estimated_profit DESC 
+      ORDER BY profit_margin_percent DESC 
       LIMIT $1
     `, [limit, profitMultiplier]);
     
