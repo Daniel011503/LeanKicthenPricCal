@@ -7,6 +7,7 @@ const router = express.Router();
 const validateRecipe = [
   body('name').notEmpty().trim().withMessage('Name is required'),
   body('servings').isInt({ min: 1 }).withMessage('Servings must be a positive integer'),
+  body('week').optional({ nullable: true }).isISO8601().withMessage('Week must be a valid date'),
   body('total_recipe_cost').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('Total recipe cost must be non-negative'),
   body('cost_per_serving').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('Cost per serving must be non-negative'),
   body('recipe_ingredients').optional().isArray().withMessage('Recipe ingredients must be an array'),
@@ -20,7 +21,7 @@ router.get('/', async (req, res) => {
     const result = await pool.query(`
       SELECT r.*
       FROM recipes r
-      ORDER BY r.name ASC
+      ORDER BY r.week DESC, r.name ASC
     `);
     console.log(`📋 Found ${result.rows.length} recipes`);
     res.json(result.rows);
@@ -102,6 +103,7 @@ router.post('/', validateRecipe, async (req, res) => {
     const {
       name,
       servings,
+      week,
       total_recipe_cost,
       cost_per_serving,
       selling_price_per_serving,
@@ -132,6 +134,7 @@ router.post('/', validateRecipe, async (req, res) => {
     const insertValues = [
       name,
       servings,
+      week || null,
       parsedTotalCost,
       cost_per_serving ? parseFloat(cost_per_serving) : 0,
       parsedSellingPrice,
@@ -146,7 +149,7 @@ router.post('/', validateRecipe, async (req, res) => {
     })));
 
     const recipeResult = await client.query(
-      'INSERT INTO recipes (name, servings, total_recipe_cost, cost_per_serving, selling_price_per_serving, total_revenue, profit_margin) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      'INSERT INTO recipes (name, servings, week, total_recipe_cost, cost_per_serving, selling_price_per_serving, total_revenue, profit_margin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
       insertValues
     );
     
@@ -205,6 +208,7 @@ router.put('/:id', validateRecipe, async (req, res) => {
     const { 
       name, 
       servings, 
+      week,
       total_recipe_cost,
       cost_per_serving,
       recipe_ingredients,
@@ -213,8 +217,8 @@ router.put('/:id', validateRecipe, async (req, res) => {
     
     // Update recipe
     const recipeResult = await client.query(
-      'UPDATE recipes SET name = $1, servings = $2, total_recipe_cost = $3, cost_per_serving = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
-      [name, servings, total_recipe_cost || 0, cost_per_serving || 0, id]
+      'UPDATE recipes SET name = $1, servings = $2, week = $3, total_recipe_cost = $4, cost_per_serving = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
+      [name, servings, week || null, total_recipe_cost || 0, cost_per_serving || 0, id]
     );
     
     if (recipeResult.rows.length === 0) {

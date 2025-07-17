@@ -215,6 +215,7 @@ function App() {
     servings: '',
     selling_price_per_serving: '', // Revenue per serving
     target_profit_margin: '', // Target profit margin (%)
+    week: '', // Add week field
     ingredients: [], // Array of {ingredient_id, quantity, unit, cost}
     packaging: [] // Array of {packaging_id, packaging_name, quantity, cost}
   });
@@ -409,6 +410,7 @@ function App() {
     const recipeData = {
       name: newRecipe.name,
       servings: parseInt(newRecipe.servings),
+      week: newRecipe.week, // Send week to backend
       total_recipe_cost: totalCost.toFixed(2),
       cost_per_serving: costPerServing,
       selling_price_per_serving: parseFloat(newRecipe.selling_price_per_serving) || 0,
@@ -447,6 +449,7 @@ function App() {
           servings: '', 
           selling_price_per_serving: '',
           target_profit_margin: '',
+          week: '', // Reset week
           ingredients: [],
           packaging: []
         });
@@ -689,6 +692,41 @@ function App() {
       ingredient.vendor_name?.toLowerCase().includes(searchTerm)
     );
   });
+
+  // Group recipes by week (Sunday-Saturday)
+  function getWeekStart(dateStr) {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return null;
+    // Get previous Sunday
+    const day = date.getDay();
+    const sunday = new Date(date);
+    sunday.setDate(date.getDate() - day);
+    // Format as YYYY-MM-DD
+    return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
+  }
+
+  const recipesByWeek = recipes.reduce((acc, recipe) => {
+    let weekKey = 'Unscheduled';
+    let dateStr = recipe.date || recipe.week;
+    if (dateStr) {
+      const weekStart = getWeekStart(dateStr);
+      if (weekStart) weekKey = weekStart;
+    }
+    if (!acc[weekKey]) acc[weekKey] = [];
+    acc[weekKey].push(recipe);
+    return acc;
+  }, {});
+
+  // Helper to format week range as 'Week of MM-DD-YYYY - MM-DD-YYYY'
+  function formatWeekRange(weekKey) {
+    if (!weekKey || weekKey === 'Unscheduled') return 'Unscheduled Recipes';
+    const startDate = new Date(weekKey);
+    if (isNaN(startDate.getTime())) return 'Week of ' + weekKey;
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6); // Saturday
+    const format = d => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${d.getFullYear()}`;
+    return `Week of ${format(startDate)} - ${format(endDate)}`;
+  }
 
   return (
     <div style={{ 
@@ -1403,6 +1441,23 @@ function App() {
                       onFocus={(e) => e.target.style.borderColor = '#228B22'} // Green focus
                       onBlur={(e) => e.target.style.borderColor = '#d3d3d3'}
                     />
+                    <input
+                      type="date"
+                      placeholder="Select Week"
+                      value={newRecipe.week}
+                      onChange={e => setNewRecipe({ ...newRecipe, week: e.target.value })}
+                      required
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        border: '2px solid #d3d3d3',
+                        fontSize: '16px',
+                        outline: 'none',
+                        marginBottom: '8px'
+                      }}
+                      min="2020-01-01"
+                      max="2100-12-31"
+                    />
 
                     {/* Packaging Selection */}
                     <div style={{ 
@@ -1873,7 +1928,7 @@ function App() {
                       padding: '12px',
                       marginBottom: '8px',
                       textAlign: 'center',
-                      boxShadow: '0 2px 8px rgba(255, 215, 0, 0.15)'
+                      boxShadow: '0 2px 8px rgba(255,215,0,0.15)'
                     }}>
                       Suggested price per serving for {parseFloat(newRecipe.target_profit_margin).toFixed(1)}% margin: <span style={{fontSize: '1.5rem', color: '#b8860b'}}>${calculateSuggestedPricePerServing()}</span>
                     </div>
@@ -1903,10 +1958,9 @@ function App() {
                 </form>
               </div>
 
-              {/* Recipes List */}
+              {/* Recipes List - Grouped by Week */}
               <div style={{ 
                 backgroundColor: '#ffffff', 
-                
                 padding: '30px', 
                 borderRadius: '15px',
                 boxShadow: '0 8px 25px rgba(0,0,0,0.1)',
@@ -1926,180 +1980,117 @@ function App() {
                     <div style={{ fontSize: '24px', marginBottom: '10px' }}>🔄</div>
                     Loading recipes...
                   </div>
-                ) : recipes.length > 0 ? (
-                  <div style={{ display: 'grid', gap: '20px' }}>
-                    {recipes.map((recipe, index) => (
-                      <div key={index} style={{ 
-                        backgroundColor: '#ffffff', // Pure white background
-                        padding: '25px', 
-                        borderRadius: '15px',
-                        border: '2px solid #228B22', // Green border for recipe items
-                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                        cursor: 'pointer'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-3px)';
-                        e.currentTarget.style.boxShadow = '0 8px 25px rgba(34, 139, 34, 0.15)'; // Green shadow
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = 'none';
-                      }}>
-                        <h4 style={{ 
-                          margin: '0 0 15px 0', 
-                          color: '#4a4a4a', // Dark grey text
-                          fontSize: '1.3rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between' // Space between title and delete button
-                        }}>
-                          <span style={{ display: 'flex', alignItems: 'center' }}>
-                            🍽️ {recipe.name}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation(); // Prevent card hover effects
-                              handleDeleteRecipe(recipe.id);
-                            }}
-                            style={{
-                              padding: '6px 10px',
-                              backgroundColor: '#dc3545', // Red background
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '8px',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              transition: 'background-color 0.2s ease',
-                              boxShadow: '0 2px 4px rgba(220, 53, 69, 0.3)',
-                              marginLeft: '10px'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = '#c82333';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = '#dc3545';
-                            }}
-                          >
-                            🗑️ Delete
-                          </button>
-                        </h4>
-                        <div style={{ 
-                          display: 'grid', 
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', 
-                          gap: '15px', 
-                          marginBottom: '15px' 
-                        }}>
-                          <div style={{ 
-                            backgroundColor: '#ffffff', 
-                            padding: '12px', 
-                            borderRadius: '8px',
-                            textAlign: 'center',
-                            border: '2px solid #d3d3d3' // Light grey border
+                ) : Object.keys(recipesByWeek).length > 0 ? (
+                  Object.keys(recipesByWeek).sort((a, b) => b.localeCompare(a)).map(week => (
+                    <div key={week} style={{ marginBottom: '32px', border: '2px solid #eee', borderRadius: '8px', padding: '16px', background: '#fafafa' }}>
+                      <h4 style={{ color: '#228B22', marginBottom: '12px' }}>{formatWeekRange(week)}</h4>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+                        {recipesByWeek[week].map((recipe, index) => (
+                          <div key={index} style={{
+                            background: 'linear-gradient(135deg, #f8fff8 0%, #e6ffe6 100%)',
+                            padding: '28px 24px',
+                            borderRadius: '18px',
+                            border: '2px solid #228B22',
+                            boxShadow: '0 6px 24px rgba(34,139,34,0.10)',
+                            marginBottom: '12px',
+                            transition: 'transform 0.2s, box-shadow 0.2s',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            minWidth: '280px',
+                            maxWidth: '420px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                            borderLeft: '8px solid #228B22',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.transform = 'scale(1.03)';
+                            e.currentTarget.style.boxShadow = '0 12px 32px rgba(34,139,34,0.18)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.boxShadow = '0 6px 24px rgba(34,139,34,0.10)';
                           }}>
-                            <div style={{ fontSize: '12px', color: '#4a4a4a', marginBottom: '5px' }}>SERVINGS</div> {/* Dark grey text */}
-                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4a4a4a' }}>{recipe.servings}</div>
-                          </div>
-                          <div style={{ 
-                            backgroundColor: '#f0fff0', // Very light green background
-                            padding: '12px', 
-                            borderRadius: '8px',
-                            textAlign: 'center',
-                            border: '2px solid #228B22' // Green border
-                          }}>
-                            <div style={{ fontSize: '12px', color: '#228B22', marginBottom: '5px' }}>TOTAL COST</div> {/* Green text */}
-                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#228B22' }}>${recipe.total_recipe_cost || '0.00'}</div>
-                          </div>
-                          <div style={{ 
-                            backgroundColor: '#fffdf0', // Very light gold background
-                            padding: '12px', 
-                            borderRadius: '8px',
-                            textAlign: 'center',
-                            border: '2px solid #DAA520' // Gold border
-                          }}>
-                            <div style={{ fontSize: '12px', color: '#DAA520', marginBottom: '5px' }}>COST PER SERVING</div> {/* Gold text */}
-                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#DAA520' }}>${recipe.cost_per_serving || '0.00'}</div>
-                          </div>
-                          <div style={{ 
-                            backgroundColor: '#f0f8ff', // Very light blue background
-                            padding: '12px', 
-                            borderRadius: '8px',
-                            textAlign: 'center',
-                            border: '2px solid #4169E1' // Royal blue border
-                          }}>
-                            <div style={{ fontSize: '12px', color: '#4169E1', marginBottom: '5px' }}>PRICE PER SERVING</div> {/* Blue text */}
-                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4169E1' }}>
-                              {
-                                recipe.selling_price_per_serving && parseFloat(recipe.selling_price_per_serving) !== 0
-                                  ? `$${parseFloat(recipe.selling_price_per_serving).toFixed(2)}`
-                                  : (recipe.cost_per_serving && recipe.servings
-                                      ? `$${(parseFloat(recipe.cost_per_serving) + 1).toFixed(2)}`
-                                      : 'N/A')
-                              }
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <h4 style={{
+                                  margin: 0,
+                                  color: '#228B22',
+                                  fontSize: '1.35rem',
+                                  fontWeight: 700,
+                                  letterSpacing: '0.5px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                }}>
+                                  🍽️ {recipe.name}
+                                </h4>
+                              </div>
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleDeleteRecipe(recipe.id);
+                                }}
+                                style={{
+                                  padding: '7px 12px',
+                                  backgroundColor: '#dc3545',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  cursor: 'pointer',
+                                  fontSize: '13px',
+                                  fontWeight: '600',
+                                  transition: 'background-color 0.2s',
+                                  boxShadow: '0 2px 4px rgba(220, 53, 69, 0.18)'
+                                }}
+                                onMouseEnter={e => e.target.style.backgroundColor = '#c82333'}
+                                onMouseLeave={e => e.target.style.backgroundColor = '#dc3545'}
+                              >
+                                🗑️ Delete
+                              </button>
                             </div>
-                          </div>
-                          <div style={{ 
-                            backgroundColor: '#f5f0ff', // Very light purple background
-                            padding: '12px', 
-                            borderRadius: '8px',
-                            textAlign: 'center',
-                            border: '2px solid #9932CC' // Dark orchid border
-                          }}>
-                            <div style={{ fontSize: '12px', color: '#9932CC', marginBottom: '5px' }}>TOTAL REVENUE</div> {/* Purple text */}
-                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#9932CC' }}>
-                              {
-                                (!isNaN(parseFloat(recipe.selling_price_per_serving)) && !isNaN(parseFloat(recipe.servings)))
-                                  ? `$${(parseFloat(recipe.selling_price_per_serving) * parseFloat(recipe.servings)).toFixed(2)}`
-                                  : '$0.00'
-                              }
-                            </div>
-                          </div>
-                          <div style={{ 
-                            backgroundColor: recipe.profit_margin >= 0 ? '#f0fff4' : '#fff0f0', // Light green if profit, light red if loss
-                            padding: '12px', 
-                            borderRadius: '8px',
-                            textAlign: 'center',
-                            border: `2px solid ${recipe.profit_margin >= 0 ? '#32CD32' : '#DC143C'}` // Green if profit, red if loss
-                          }}>
-                          <div style={{ fontSize: '12px', color: recipe.profit_margin >= 0 ? '#32CD32' : '#DC143C', marginBottom: '5px' }}>PROFIT MARGIN</div>
-                          <div style={{ fontSize: '18px', fontWeight: 'bold', color: recipe.profit_margin >= 0 ? '#32CD32' : '#DC143C' }}>
-                            {
-                              recipe.profit_margin !== undefined && !isNaN(parseFloat(recipe.profit_margin))
-                                ? `${parseFloat(recipe.profit_margin).toFixed(1)}%`
-                                : (!isNaN(parseFloat(recipe.selling_price_per_serving)) && !isNaN(parseFloat(recipe.servings)) && !isNaN(parseFloat(recipe.total_recipe_cost)))
-                                  ? (() => {
-                                      const totalRevenue = parseFloat(recipe.selling_price_per_serving) * parseFloat(recipe.servings);
-                                      const totalCost = parseFloat(recipe.total_recipe_cost);
-                                      if (totalRevenue === 0) return '0.0%';
-                                      return `${(((totalRevenue - totalCost) / totalRevenue) * 100).toFixed(1)}%`;
-                                    })()
-                                  : '0.0%'
-                            }
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#228B22', marginTop: '5px' }}>
-                            {recipe.target_profit_margin && !isNaN(parseFloat(recipe.target_profit_margin)) && (
-                              <>Target: <b>{parseFloat(recipe.target_profit_margin).toFixed(1)}%</b></>
-                            )}
-                            {recipe.suggested_price_per_serving && !isNaN(parseFloat(recipe.suggested_price_per_serving)) && (
-                              <><br/>Suggested price: <b>${parseFloat(recipe.suggested_price_per_serving).toFixed(2)}</b></>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
+                                <div style={{ color: '#4a4a4a', fontWeight: 500 }}>Servings:</div>
+                                <div style={{ color: '#228B22', fontWeight: 700 }}>{recipe.servings}</div>
+                                <div style={{ color: '#4a4a4a', fontWeight: 500 }}>Total Cost:</div>
+                                <div style={{ color: '#228B22', fontWeight: 700 }}>${parseFloat(recipe.total_recipe_cost || recipe.cost_per_serving * recipe.servings || 0).toFixed(2)}</div>
+                                <div style={{ color: '#4a4a4a', fontWeight: 500 }}>Price per Serving:</div>
+                                <div style={{ color: '#B8860B', fontWeight: 700 }}>${recipe.selling_price_per_serving}</div>
+                                <div style={{ color: '#4a4a4a', fontWeight: 500 }}>Cost per Serving:</div>
+                                <div style={{ color: '#DAA520', fontWeight: 700 }}>${recipe.cost_per_serving}</div>
+                                <div style={{ color: '#4a4a4a', fontWeight: 500 }}>Profit Margin:</div>
+                                <div style={{ color: recipe.profit_margin >= 0 ? '#228B22' : '#dc3545', fontWeight: 700 }}>{recipe.profit_margin}%</div>
+                                <div style={{ color: '#4a4a4a', fontWeight: 500 }}>Total Revenue:</div>
+                                <div style={{ color: '#4169E1', fontWeight: 700 }}>${recipe.total_revenue}</div>
+                              </div>
+                            {/* Add a subtle highlight for high margin */}
+                            {parseFloat(recipe.profit_margin) >= 30 && (
+                              <div style={{
+                                marginTop: '10px',
+                                background: 'linear-gradient(90deg, #ffe066 0%, #ffd700 100%)',
+                                color: '#8B4513',
+                                fontWeight: 'bold',
+                                fontSize: '1.1rem',
+                                borderRadius: '8px',
+                                padding: '8px',
+                                textAlign: 'center',
+                                boxShadow: '0 2px 8px rgba(255,215,0,0.10)'
+                              }}>
+                                ⭐ High Margin Recipe!
+                              </div>
                             )}
                           </div>
-                          </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))
                 ) : (
-                  <div style={{ 
-                    textAlign: 'center', 
-                    padding: '40px', 
-                    color: '#4a4a4a', // Dark grey text
-                    backgroundColor: '#ffffff', // White background
-                    borderRadius: '12px',
-                    border: '2px dashed #228B22' // Green dashed border for recipes
-                  }}>
-                    <div style={{ fontSize: '48px', marginBottom: '15px' }}>📝</div>
-                    <p style={{ fontSize: '18px', margin: '0' }}>No recipes found. Create your first recipe to get started!</p>
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#4a4a4a' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '15px' }}>🥘</div>
+                    <p style={{ fontSize: '18px', margin: '0' }}>
+                      No recipes found. Add some recipes to get started!
+                    </p>
                   </div>
                 )}
               </div>
@@ -2289,7 +2280,7 @@ function App() {
                     color: '#4a4a4a', // Dark grey text
                     backgroundColor: '#ffffff', // White background
                     borderRadius: '12px',
-                    border: '2px dashed #8B4513' // Brown dashed border for packing
+                    border: '2px dashed #4169E1' // Blue dashed border for packing
                   }}>
                     <div style={{ fontSize: '48px', marginBottom: '15px' }}>📦</div>
                     <p style={{ fontSize: '18px', margin: '0' }}>No packing items found. Add your first packing item to get started!</p>
@@ -2669,7 +2660,7 @@ function App() {
                     )}
                   </div>
 
-                  {/* Weekly Analysis */}
+                  {/* Weekly Analysis - now with week picker filter */}
                   <div style={{
                     backgroundColor: '#ffffff',
                     padding: '20px',
@@ -2678,63 +2669,64 @@ function App() {
                     border: '2px solid #17a2b8',
                     marginBottom: '20px'
                   }}>
-                    <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <label htmlFor="weekPicker" style={{ fontWeight: 'bold', color: '#17a2b8' }}>Select Week:</label>
-                      <input
-                        id="weekPicker"
-                        type="date"
-                        value={selectedWeek}
-                        onChange={e => {
-                          setSelectedWeek(e.target.value);
-                          fetchReportsData(e.target.value);
-                        }}
-                        style={{ padding: '5px', borderRadius: '5px', border: '1px solid #17a2b8' }}
-                      />
-                      <button
-                        onClick={() => {
-                          setSelectedWeek('');
-                          fetchReportsData('');
-                        }}
-                        style={{ marginLeft: '10px', padding: '5px 10px', borderRadius: '5px', border: '1px solid #aaa', background: '#f8f9fa', cursor: 'pointer' }}
-                      >
-                        Clear
-                      </button>
-                    </div>
                     <h3 style={{ color: '#17a2b8', marginBottom: '15px' }}>📅 Weekly Cost vs Revenue Analysis</h3>
-                    {reportsData.weekly_analysis && reportsData.weekly_analysis.length > 0 ? (
-                      reportsData.weekly_analysis.map((week, index) => (
-                        <div key={index} style={{ 
-                          marginBottom: '15px',
-                          padding: '15px',
-                          backgroundColor: '#f8f9fa',
-                          borderRadius: '8px',
-                          border: '1px solid #dee2e6'
-                        }}>
-                          <h4 style={{ color: '#495057', marginBottom: '10px' }}>
-                            Week of {new Date(week.week_start).toLocaleDateString()}
-                          </h4>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            <div>
-                              <p style={{ margin: '5px 0' }}><strong>Recipes Created:</strong> {week.recipes_created}</p>
-                              <p style={{ margin: '5px 0', color: '#dc3545' }}><strong>Total Cost:</strong> ${parseFloat(week.total_cost || 0).toFixed(2)}</p>
+                    <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <label htmlFor="weekPicker" style={{ fontWeight: 'bold', color: '#17a2b8' }}>Select Week:</label>
+                      <select
+                        id="weekPicker"
+                        value={selectedWeek}
+                        onChange={e => setSelectedWeek(e.target.value)}
+                        style={{ padding: '5px', borderRadius: '5px', border: '1px solid #17a2b8' }}
+                      >
+                        {Object.keys(recipesByWeek).sort((a, b) => b.localeCompare(a)).map(weekKey => (
+                          <option key={weekKey} value={weekKey}>{formatWeekRange(weekKey)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {Object.keys(recipesByWeek).length > 0 && selectedWeek ? (
+                      (() => {
+                        const weekRecipes = recipesByWeek[selectedWeek] || [];
+                        const recipesCreated = weekRecipes.length;
+                        const totalCost = weekRecipes.reduce((sum, r) => sum + (parseFloat(r.total_recipe_cost) || 0), 0);
+                        const totalRevenue = weekRecipes.reduce((sum, r) => sum + (parseFloat(r.total_revenue) || 0), 0);
+                        const totalProfit = weekRecipes.reduce((sum, r) => sum + ((parseFloat(r.total_revenue) || 0) - (parseFloat(r.total_recipe_cost) || 0)), 0);
+                        const avgProfitMargin = recipesCreated > 0
+                          ? weekRecipes.reduce((sum, r) => sum + (parseFloat(r.profit_margin) || 0), 0) / recipesCreated
+                          : 0;
+                        return (
+                          <div key={selectedWeek} style={{ 
+                            marginBottom: '15px',
+                            padding: '15px',
+                            backgroundColor: '#f8f9fa',
+                            borderRadius: '8px',
+                            border: '1px solid #dee2e6'
+                          }}>
+                            <h4 style={{ color: '#495057', marginBottom: '10px' }}>
+                              {formatWeekRange(selectedWeek)}
+                            </h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                              <div>
+                                <p style={{ margin: '5px 0' }}><strong>Recipes Created:</strong> {recipesCreated}</p>
+                                <p style={{ margin: '5px 0', color: '#dc3545' }}><strong>Total Cost:</strong> ${totalCost.toFixed(2)}</p>
+                              </div>
+                              <div>
+                                <p style={{ margin: '5px 0', color: '#28a745' }}><strong>Total Revenue:</strong> ${totalRevenue.toFixed(2)}</p>
+                                <p style={{ margin: '5px 0', color: totalProfit >= 0 ? '#28a745' : '#dc3545' }}>
+                                  <strong>Total Profit:</strong> ${totalProfit.toFixed(2)}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <p style={{ margin: '5px 0', color: '#28a745' }}><strong>Total Revenue:</strong> ${parseFloat(week.total_revenue || 0).toFixed(2)}</p>
-                              <p style={{ margin: '5px 0', color: parseFloat(week.total_profit || 0) >= 0 ? '#28a745' : '#dc3545' }}>
-                                <strong>Total Profit:</strong> ${parseFloat(week.total_profit || 0).toFixed(2)}
-                              </p>
+                            <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                              <span style={{ 
+                                color: avgProfitMargin >= 0 ? '#28a745' : '#dc3545',
+                                fontWeight: 'bold'
+                              }}>
+                                Avg Profit Margin: {avgProfitMargin.toFixed(1)}%
+                              </span>
                             </div>
                           </div>
-                          <div style={{ marginTop: '10px', textAlign: 'center' }}>
-                            <span style={{ 
-                              color: parseFloat(week.avg_profit_margin || 0) >= 0 ? '#28a745' : '#dc3545',
-                              fontWeight: 'bold'
-                            }}>
-                              Avg Profit Margin: {parseFloat(week.avg_profit_margin || 0).toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })()
                     ) : (
                       <p>No weekly data available</p>
                     )}

@@ -149,21 +149,57 @@ router.get('/ingredient-usage', async (req, res) => {
 // GET profitability analysis for all recipes
 router.get('/profitability-analysis', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT r.name as recipe_name,
-             rcs.servings,
-             rcs.total_recipe_cost,
-             rcs.cost_per_serving,
+    // Get all recipes with their week
+    const recipesResult = await pool.query(`
+      SELECT r.id, r.name as recipe_name, r.week,
+             rcs.servings, rcs.total_recipe_cost, rcs.cost_per_serving,
              r.desired_profit_margin,
+             r.selling_price_per_serving,
              ROUND((rcs.cost_per_serving / (1 - r.desired_profit_margin / 100)), 2) as suggested_price_per_serving,
              ROUND((rcs.cost_per_serving / (1 - r.desired_profit_margin / 100)) - rcs.cost_per_serving, 2) as profit_per_serving,
              ROUND(((rcs.cost_per_serving / (1 - r.desired_profit_margin / 100)) - rcs.cost_per_serving) * rcs.servings, 2) as total_profit
       FROM recipes r
       JOIN recipe_cost_summary rcs ON r.id = rcs.id
-      ORDER BY total_profit DESC
+      ORDER BY r.week DESC, r.id ASC
     `);
-    
-    res.json(result.rows);
+
+    // Group recipes by week start (Sunday)
+    const groupByWeek = {};
+    for (const recipe of recipesResult.rows) {
+      let weekStart = recipe.week;
+      if (weekStart) {
+        // Parse week as date and get previous Sunday
+        const date = new Date(weekStart);
+        if (!isNaN(date.getTime())) {
+          const day = date.getDay();
+          date.setDate(date.getDate() - day);
+          weekStart = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+      } else {
+        weekStart = 'Unscheduled';
+      }
+      if (!groupByWeek[weekStart]) groupByWeek[weekStart] = [];
+      groupByWeek[weekStart].push(recipe);
+    }
+
+    // Calculate totals per week
+    const weekData = Object.entries(groupByWeek).map(([week, recipes]) => {
+      const total_cost = recipes.reduce((sum, r) => sum + parseFloat(r.total_recipe_cost || 0), 0);
+      const total_revenue = recipes.reduce((sum, r) => sum + (parseFloat(r.selling_price_per_serving || 0) * parseFloat(r.servings || 0)), 0);
+      const total_profit = recipes.reduce((sum, r) => sum + parseFloat(r.total_profit || 0), 0);
+      const avg_profit_margin = recipes.length > 0 ? (recipes.reduce((sum, r) => sum + parseFloat(r.desired_profit_margin || 0), 0) / recipes.length) : 0;
+      return {
+        week,
+        recipes,
+        recipes_created: recipes.length,
+        total_cost,
+        total_revenue,
+        total_profit,
+        avg_profit_margin
+      };
+    });
+
+    res.json(weekData);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch profitability analysis' });
