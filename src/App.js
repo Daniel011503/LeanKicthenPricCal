@@ -5,7 +5,7 @@ function App() {
   // Fetch all recipes
   const fetchRecipes = async () => {
     try {
-      console.log('Fetching recipes from: http://localhost:5000/api/recipes');
+      // Removed dev log
       const response = await fetch('http://localhost:5000/api/recipes', {
         headers: {
           'Accept': 'application/json',
@@ -14,10 +14,10 @@ function App() {
         mode: 'cors'
       });
       const data = await response.json();
-      console.log('Recipes response:', data);
+      // Removed dev log
       setRecipes(data);
     } catch (error) {
-      console.error('Failed to fetch recipes:', error);
+      // Optionally log error to a service
     } finally {
       setLoading(false);
     }
@@ -40,7 +40,7 @@ function App() {
   const handleReuseSubmit = async (e) => {
     e.preventDefault();
     if (!reuseWeek) {
-      alert('Please enter a week for the new recipe.');
+      // Optionally show a user-friendly message or highlight the field
       return;
     }
     try {
@@ -54,10 +54,10 @@ function App() {
         setReuseRecipe(null);
         fetchRecipes();
       } else {
-        alert('Failed to duplicate recipe.');
+        // Optionally show a user-friendly message
       }
     } catch (err) {
-      alert('Error duplicating recipe.');
+      // Optionally show a user-friendly message
     }
   };
   // Handler for duplicating a recipe
@@ -74,10 +74,10 @@ function App() {
         if (res.ok) {
           fetchRecipes();
         } else {
-          alert('Failed to duplicate recipe.');
+          // Optionally show a user-friendly message
         }
       } catch (err) {
-        alert('Error duplicating recipe.');
+        // Optionally show a user-friendly message
       }
     }
   };
@@ -87,6 +87,13 @@ function App() {
   const [packing, setPacking] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [reportsData, setReportsData] = useState(null);
+  // Helper to get the latest week from recipesByWeek
+  function getLatestWeek(weeks) {
+    const sortedWeeks = Object.keys(weeks).filter(w => w !== 'Unscheduled').sort((a, b) => b.localeCompare(a));
+    return sortedWeeks.length > 0 ? sortedWeeks[0] : '';
+  }
+
+  // Set initial selectedWeek to latest week available
   const [selectedWeek, setSelectedWeek] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('reports');
@@ -146,13 +153,13 @@ function App() {
   // Add ingredient to recipe
   const handleAddIngredientToRecipe = () => {
     if (!recipeIngredient.ingredient_id || !recipeIngredient.quantity) {
-      alert('Please select an ingredient and enter a quantity');
+      // Optionally show a user-friendly message or highlight the field
       return;
     }
 
     const selectedIngredient = ingredients.find(ing => ing.id === parseInt(recipeIngredient.ingredient_id));
     if (!selectedIngredient) {
-      alert('Selected ingredient not found');
+      // Optionally show a user-friendly message
       return;
     }
 
@@ -162,7 +169,7 @@ function App() {
     const vendor = vendors.find(v => v.id === selectedIngredient.vendor_id);
     const displayName = vendor 
       ? `${selectedIngredient.name} (${vendor.name})`
-      : `${selectedIngredient.name} (No vendor)`;
+      : `${selectedIngredient.name}`;
     
     const newRecipeIngredient = {
       ingredient_id: selectedIngredient.id,
@@ -196,13 +203,13 @@ function App() {
   // Add packaging to recipe
   const handleAddPackagingToRecipe = () => {
     if (!recipePackaging.packaging_id || !recipePackaging.quantity) {
-      alert('Please select a packaging item and enter a quantity');
+      // Optionally show a user-friendly message or highlight the field
       return;
     }
 
     const selectedPackaging = packing.find(pkg => pkg.id === parseInt(recipePackaging.packaging_id));
     if (!selectedPackaging) {
-      alert('Selected packaging not found');
+      // Optionally show a user-friendly message
       return;
     }
 
@@ -256,13 +263,6 @@ function App() {
     const costPerServing = calculateCostPerServing();
     const sellingPrice = parseFloat(newRecipe.selling_price_per_serving) || 0;
     
-    console.log('🧮 calculateProfitMargin:', {
-      costPerServing,
-      sellingPrice,
-      selling_price_per_serving_raw: newRecipe.selling_price_per_serving,
-      selling_price_per_serving_type: typeof newRecipe.selling_price_per_serving
-    });
-    
     if (sellingPrice === 0) return 0;
     return ((sellingPrice - costPerServing) / sellingPrice) * 100;
   };
@@ -271,14 +271,6 @@ function App() {
   const calculateTotalRevenue = () => {
     const sellingPrice = parseFloat(newRecipe.selling_price_per_serving) || 0;
     const servings = parseFloat(newRecipe.servings) || 1;
-    
-    console.log('💰 calculateTotalRevenue:', {
-      sellingPrice,
-      servings,
-      result: sellingPrice * servings,
-      selling_price_per_serving_raw: newRecipe.selling_price_per_serving,
-      servings_raw: newRecipe.servings
-    });
     
     return sellingPrice * servings;
   };
@@ -339,7 +331,7 @@ function App() {
   useEffect(() => {
     const checkBackendHealth = async () => {
       try {
-        console.log('Checking backend health at: http://localhost:5000/api/health');
+        // Removed dev log
         const response = await fetch('http://localhost:5000/api/health', {
           headers: {
             'Accept': 'application/json',
@@ -348,20 +340,20 @@ function App() {
           mode: 'cors'
         });
         const data = await response.json();
-        console.log('Backend health response:', data);
+        // Removed dev log
         setHealthStatus(data);
       } catch (error) {
-        console.error('Backend connection failed:', error);
+        // Optionally log error to a service
         setHealthStatus({ 
           status: 'ERROR', 
-          message: `Backend not available: ${error.message}. Check CORS settings or server status.` 
+          message: `Backend not available.` 
         });
       }
     };
 
     const fetchIngredients = async () => {
       try {
-        console.log('Fetching ingredients from: http://localhost:5000/api/ingredients');
+        // Removed dev log
         const response = await fetch('http://localhost:5000/api/ingredients', {
           headers: {
             'Accept': 'application/json',
@@ -370,16 +362,16 @@ function App() {
           mode: 'cors'
         });
         const data = await response.json();
-        console.log('Ingredients response:', data);
+        // Removed dev log
         setIngredients(data);
       } catch (error) {
-        console.error('Failed to fetch ingredients:', error);
+        // Optionally log error to a service
       }
     };
 
     const fetchRecipes = async () => {
       try {
-        console.log('Fetching recipes from: http://localhost:5000/api/recipes');
+        // Removed dev log
         const response = await fetch('http://localhost:5000/api/recipes', {
           headers: {
             'Accept': 'application/json',
@@ -388,10 +380,10 @@ function App() {
           mode: 'cors'
         });
         const data = await response.json();
-        console.log('Recipes response:', data);
+        // Removed dev log
         setRecipes(data);
       } catch (error) {
-        console.error('Failed to fetch recipes:', error);
+        // Optionally log error to a service
       } finally {
         setLoading(false);
       }
@@ -399,7 +391,7 @@ function App() {
 
     const fetchPacking = async () => {
       try {
-        console.log('Fetching packing from: http://localhost:5000/api/packing');
+        // Removed dev log
         const response = await fetch('http://localhost:5000/api/packing', {
           headers: {
             'Accept': 'application/json',
@@ -408,16 +400,16 @@ function App() {
           mode: 'cors'
         });
         const data = await response.json();
-        console.log('Packing response:', data);
+        // Removed dev log
         setPacking(data);
       } catch (error) {
-        console.error('Failed to fetch packing:', error);
+        // Optionally log error to a service
       }
     };
 
     const fetchVendors = async () => {
       try {
-        console.log('Fetching vendors from: http://localhost:5000/api/vendors');
+        // Removed dev log
         const response = await fetch('http://localhost:5000/api/vendors', {
           headers: {
             'Accept': 'application/json',
@@ -426,10 +418,10 @@ function App() {
           mode: 'cors'
         });
         const data = await response.json();
-        console.log('Vendors response:', data);
+        // Removed dev log
         setVendors(data);
       } catch (error) {
-        console.error('Failed to fetch vendors:', error);
+        // Optionally log error to a service
       }
     };
 
@@ -463,33 +455,26 @@ function App() {
           vendor_id: '',
           box_count: '1'
         });
-        alert('Ingredient added successfully!');
+        // Optionally show a user-friendly message
       } else {
         const error = await response.json();
-        alert('Error adding ingredient: ' + (error.message || 'Unknown error'));
+        // Optionally show a user-friendly message
       }
     } catch (error) {
-      console.error('Error adding ingredient:', error);
-      alert('Error adding ingredient: ' + error.message);
+      // Optionally log error to a service
+      // Optionally show a user-friendly message
     }
   };
 
   const handleAddRecipe = async (e) => {
     e.preventDefault();
-    
-    console.log('Creating recipe with data:', {
-      ...newRecipe,
-      total_recipe_cost: calculateTotalRecipeCost().toFixed(2),
-      cost_per_serving: calculateCostPerServing().toFixed(2)
-    });
-    
-    const totalCost = calculateTotalRecipeCost(); // Total cost for all servings
-    const costPerServing = calculateCostPerServing().toFixed(2); // Cost for one serving
-    
+    // ...existing code...
+    const totalCost = calculateTotalRecipeCost();
+    const costPerServing = calculateCostPerServing().toFixed(2);
     const recipeData = {
       name: newRecipe.name,
       servings: parseInt(newRecipe.servings),
-      week: newRecipe.week, // Send week to backend
+      week: newRecipe.week,
       total_recipe_cost: totalCost.toFixed(2),
       cost_per_serving: costPerServing,
       selling_price_per_serving: parseFloat(newRecipe.selling_price_per_serving) || 0,
@@ -503,13 +488,6 @@ function App() {
         quantity: pkg.quantity
       })) || []
     };
-
-    console.log('Final recipe data being sent:', recipeData);
-    console.log('Selling price from form:', newRecipe.selling_price_per_serving);
-    console.log('Parsed selling price:', parseFloat(newRecipe.selling_price_per_serving));
-    console.log('Total revenue calculated:', calculateTotalRevenue());
-    console.log('Profit margin calculated:', calculateProfitMargin());
-    
     try {
       const response = await fetch('http://localhost:5000/api/recipes', {
         method: 'POST',
@@ -519,31 +497,31 @@ function App() {
         mode: 'cors',
         body: JSON.stringify(recipeData)
       });
-      
       if (response.ok) {
         const addedRecipe = await response.json();
         setRecipes([...recipes, addedRecipe]);
-        setNewRecipe({ 
-          name: '', 
-          servings: '', 
+        setNewRecipe({
+          name: '',
+          servings: '',
           selling_price_per_serving: '',
           target_profit_margin: '',
-          week: '', // Reset week
+          week: '',
           ingredients: [],
           packaging: []
         });
-        alert('Recipe added successfully!');
+        // Optionally show a user-friendly message
       } else {
         const error = await response.json();
-        console.error('Recipe creation error:', error);
-        alert('Error adding recipe: ' + (error.message || error.error || 'Unknown error'));
+        // Optionally log error to a service
+        // Optionally show a user-friendly message
       }
     } catch (error) {
-      console.error('Error adding recipe:', error);
-      alert('Error adding recipe: ' + error.message);
+      // Optionally log error to a service
+      // Optionally show a user-friendly message
     }
-  };
-
+    // ...existing code...
+  }
+  // ...existing code...
   const handleDeleteIngredient = async (ingredientId) => {
     if (!window.confirm('Are you sure you want to delete this ingredient?')) {
       return;
@@ -796,6 +774,13 @@ function App() {
     return acc;
   }, {});
 
+  // Set selectedWeek to latest week on first load if not set
+  useEffect(() => {
+    if (!selectedWeek && Object.keys(recipesByWeek).length > 0) {
+      setSelectedWeek(getLatestWeek(recipesByWeek));
+    }
+  }, [recipesByWeek, selectedWeek]);
+
   // Helper to format week range as 'Week of MM-DD-YYYY - MM-DD-YYYY'
   function formatWeekRange(weekKey) {
     if (!weekKey || weekKey === 'Unscheduled') return 'Unscheduled Recipes';
@@ -808,11 +793,7 @@ function App() {
   }
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      backgroundColor: '#f5f5f5', // Light grey background
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' 
-    }}>
+    <div>
       {/* Reuse Recipe Modal */}
       {reuseModalOpen && (
         <div style={{
@@ -1452,7 +1433,9 @@ function App() {
               }}>
                 📝 Recipe Builder
               </h2>
-              
+              <div style={{ textAlign: 'center', marginBottom: '20px', color: '#495057', fontWeight: 'bold' }}>
+                {newRecipe.week ? `Selected Date for Recipe: ${newRecipe.week}` : 'No date selected for this recipe.'}
+              </div>
               {/* Add New Recipe Form */}
               <div style={{ 
                 backgroundColor: '#ffffff', 
@@ -2131,8 +2114,11 @@ function App() {
                                 }}>
                                   🍽️ {recipe.name}
                                 </h4>
+                                <div style={{ color: '#495057', fontSize: '0.95rem', marginTop: '2px', fontWeight: 500 }}>
+                                  {recipe.week ? `Date to make: ${recipe.week.slice(0, 10)}` : 'No date selected'}
+                                </div>
                               </div>
-                              <div style={{ display: 'flex', gap: '8px' }}>
+                              <div style={{ display: 'flex', gap: '20px', marginLeft: '24px' }}>
                                 <button
                                   onClick={e => {
                                     e.stopPropagation();
@@ -2800,6 +2786,9 @@ function App() {
                     marginBottom: '20px'
                   }}>
                     <h3 style={{ color: '#17a2b8', marginBottom: '15px' }}>📅 Weekly Cost vs Revenue Analysis</h3>
+                    <div style={{ marginBottom: '10px', color: '#495057', fontWeight: 'bold' }}>
+                      Showing data for week: {selectedWeek ? formatWeekRange(selectedWeek) : 'None'}
+                    </div>
                     <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <label htmlFor="weekPicker" style={{ fontWeight: 'bold', color: '#17a2b8' }}>Select Week:</label>
                       <select
@@ -2943,7 +2932,6 @@ function App() {
             </div>
           )}
         </div>
-
         <footer style={{ 
           textAlign: 'center', 
           marginTop: '50px', 
@@ -2971,5 +2959,4 @@ function App() {
     </div>
   );
 }
-
 export default App;
