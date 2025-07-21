@@ -13,6 +13,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('reports');
   const [ingredientSearch, setIngredientSearch] = useState(''); // Search state for ingredients
   const [reportsLoading, setReportsLoading] = useState(false); // Loading state for reports refresh
+  // Duplicate recipe UI state
+  const [duplicateForm, setDuplicateForm] = useState({}); // { [recipeId]: { open: bool, name: string, week: string, loading: bool, error: string } }
   
   // New ingredient form
   const [newIngredient, setNewIngredient] = useState({
@@ -681,6 +683,57 @@ function App() {
       fetchReportsData(selectedWeek);
     }
   }, [ingredients.length, recipes.length, vendors.length, packing.length]);
+
+  // Handle duplicate recipe
+  const handleOpenDuplicate = (recipe) => {
+    setDuplicateForm(prev => ({
+      ...prev,
+      [recipe.id]: {
+        open: true,
+        name: `${recipe.name} (Copy)` || '',
+        week: recipe.week || '',
+        loading: false,
+        error: ''
+      }
+    }));
+  };
+
+  const handleCloseDuplicate = (recipeId) => {
+    setDuplicateForm(prev => ({ ...prev, [recipeId]: { ...prev[recipeId], open: false, error: '' } }));
+  };
+
+  const handleDuplicateChange = (recipeId, field, value) => {
+    setDuplicateForm(prev => ({
+      ...prev,
+      [recipeId]: {
+        ...prev[recipeId],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleDuplicateRecipe = async (recipeId) => {
+    setDuplicateForm(prev => ({ ...prev, [recipeId]: { ...prev[recipeId], loading: true, error: '' } }));
+    try {
+      const { name, week } = duplicateForm[recipeId];
+      const response = await fetch(`http://localhost:5000/api/recipes/${recipeId}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+        body: JSON.stringify({ name, week })
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to duplicate recipe');
+      }
+      const newRecipe = await response.json();
+      setRecipes(prev => [...prev, newRecipe]);
+      setDuplicateForm(prev => ({ ...prev, [recipeId]: { ...prev[recipeId], open: false, loading: false, error: '' } }));
+      alert('Recipe duplicated successfully!');
+    } catch (error) {
+      setDuplicateForm(prev => ({ ...prev, [recipeId]: { ...prev[recipeId], loading: false, error: error.message } }));
+    }
+  };
 
   // Filter ingredients based on search term
   const filteredIngredients = ingredients.filter(ingredient => {
@@ -2012,7 +2065,7 @@ function App() {
                             e.currentTarget.style.transform = 'scale(1)';
                             e.currentTarget.style.boxShadow = '0 6px 24px rgba(34,139,34,0.10)';
                           }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                               <div>
                                 <h4 style={{
                                   margin: 0,
@@ -2027,29 +2080,142 @@ function App() {
                                   🍽️ {recipe.name}
                                 </h4>
                               </div>
-                              <button
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  handleDeleteRecipe(recipe.id);
-                                }}
-                                style={{
-                                  padding: '7px 12px',
-                                  backgroundColor: '#dc3545',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '8px',
-                                  cursor: 'pointer',
-                                  fontSize: '13px',
-                                  fontWeight: '600',
-                                  transition: 'background-color 0.2s',
-                                  boxShadow: '0 2px 4px rgba(220, 53, 69, 0.18)'
-                                }}
-                                onMouseEnter={e => e.target.style.backgroundColor = '#c82333'}
-                                onMouseLeave={e => e.target.style.backgroundColor = '#dc3545'}
-                              >
-                                🗑️ Delete
-                              </button>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    handleOpenDuplicate(recipe);
+                                  }}
+                                  style={{
+                                    padding: '7px 12px',
+                                    backgroundColor: '#4169E1',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    transition: 'background-color 0.2s',
+                                    boxShadow: '0 2px 4px rgba(65, 105, 225, 0.18)'
+                                  }}
+                                  onMouseEnter={e => e.target.style.backgroundColor = '#27408B'}
+                                  onMouseLeave={e => e.target.style.backgroundColor = '#4169E1'}
+                                >
+                                  📋 Duplicate
+                                </button>
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    handleDeleteRecipe(recipe.id);
+                                  }}
+                                  style={{
+                                    padding: '7px 12px',
+                                    backgroundColor: '#dc3545',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    transition: 'background-color 0.2s',
+                                    boxShadow: '0 2px 4px rgba(220, 53, 69, 0.18)'
+                                  }}
+                                  onMouseEnter={e => e.target.style.backgroundColor = '#c82333'}
+                                  onMouseLeave={e => e.target.style.backgroundColor = '#dc3545'}
+                                >
+                                  🗑️ Delete
+                                </button>
+                              </div>
                             </div>
+                            {/* Duplicate form (inline modal) */}
+                            {duplicateForm[recipe.id]?.open && (
+                              <form
+                                onSubmit={e => { e.preventDefault(); handleDuplicateRecipe(recipe.id); }}
+                                style={{
+                                  background: '#f0f4ff',
+                                  border: '2px solid #4169E1',
+                                  borderRadius: '10px',
+                                  padding: '18px',
+                                  margin: '12px 0',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '12px',
+                                  maxWidth: 340
+                                }}
+                              >
+                                <div style={{ fontWeight: 600, color: '#4169E1', fontSize: '1.1rem' }}>Duplicate Recipe</div>
+                                <label style={{ fontWeight: 500 }}>
+                                  Name:
+                                  <input
+                                    type="text"
+                                    value={duplicateForm[recipe.id]?.name || ''}
+                                    onChange={e => handleDuplicateChange(recipe.id, 'name', e.target.value)}
+                                    required
+                                    style={{
+                                      width: '100%',
+                                      padding: '8px',
+                                      borderRadius: '6px',
+                                      border: '1.5px solid #4169E1',
+                                      marginTop: 4
+                                    }}
+                                  />
+                                </label>
+                                <label style={{ fontWeight: 500 }}>
+                                  Week:
+                                  <input
+                                    type="date"
+                                    value={duplicateForm[recipe.id]?.week ? duplicateForm[recipe.id].week.slice(0,10) : ''}
+                                    onChange={e => handleDuplicateChange(recipe.id, 'week', e.target.value)}
+                                    required
+                                    style={{
+                                      width: '100%',
+                                      padding: '8px',
+                                      borderRadius: '6px',
+                                      border: '1.5px solid #4169E1',
+                                      marginTop: 4
+                                    }}
+                                  />
+                                </label>
+                                <div style={{ display: 'flex', gap: '10px', marginTop: 8 }}>
+                                  <button
+                                    type="submit"
+                                    disabled={duplicateForm[recipe.id]?.loading}
+                                    style={{
+                                      padding: '8px 18px',
+                                      backgroundColor: '#4169E1',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      fontSize: '15px'
+                                    }}
+                                  >
+                                    {duplicateForm[recipe.id]?.loading ? 'Duplicating...' : 'Confirm'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCloseDuplicate(recipe.id)}
+                                    disabled={duplicateForm[recipe.id]?.loading}
+                                    style={{
+                                      padding: '8px 18px',
+                                      backgroundColor: '#aaa',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      fontSize: '15px'
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                                {duplicateForm[recipe.id]?.error && (
+                                  <div style={{ color: 'red', marginTop: 6 }}>{duplicateForm[recipe.id].error}</div>
+                                )}
+                              </form>
+                            )}
                               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
                                 <div style={{ color: '#4a4a4a', fontWeight: 500 }}>Servings:</div>
                                 <div style={{ color: '#228B22', fontWeight: 700 }}>{recipe.servings}</div>

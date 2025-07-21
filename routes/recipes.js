@@ -291,4 +291,72 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+
+// POST duplicate recipe
+router.post('/:id/duplicate', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { name, week } = req.body; // Optional: allow user to specify new name and week
+
+    // Fetch the original recipe
+    const recipeResult = await client.query('SELECT * FROM recipes WHERE id = $1', [id]);
+    if (recipeResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Original recipe not found' });
+    }
+    const original = recipeResult.rows[0];
+
+    // Fetch ingredients and packaging
+    const ingredientsResult = await client.query('SELECT * FROM recipe_ingredients WHERE recipe_id = $1', [id]);
+    const packagingResult = await client.query('SELECT * FROM recipe_packaging WHERE recipe_id = $1', [id]);
+
+    // Prepare new recipe values
+    const newName = name || `${original.name} (Copy)`;
+    const newWeek = week || original.week;
+    const insertValues = [
+      newName,
+      original.servings,
+      newWeek,
+      original.total_recipe_cost,
+      original.cost_per_serving,
+      original.selling_price_per_serving,
+      original.total_revenue,
+      original.profit_margin
+    ];
+
+    await client.query('BEGIN');
+    // Insert new recipe
+    const newRecipeResult = await client.query(
+      'INSERT INTO recipes (name, servings, week, total_recipe_cost, cost_per_serving, selling_price_per_serving, total_revenue, profit_margin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      insertValues
+    );
+    const newRecipeId = newRecipeResult.rows[0].id;
+
+    // Duplicate ingredients
+    for (const ingredient of ingredientsResult.rows) {
+      await client.query(
+        'INSERT INTO recipe_ingredients (recipe_id, ingredient_id, quantity_used, unit_type) VALUES ($1, $2, $3, $4)',
+        [newRecipeId, ingredient.ingredient_id, ingredient.quantity_used, ingredient.unit_type]
+      );
+    }
+
+    // Duplicate packaging
+    for (const packaging of packagingResult.rows) {
+      await client.query(
+        'INSERT INTO recipe_packaging (recipe_id, packaging_id, quantity) VALUES ($1, $2, $3)',
+        [newRecipeId, packaging.packaging_id, packaging.quantity]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json(newRecipeResult.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error duplicating recipe:', err);
+    res.status(500).json({ error: 'Failed to duplicate recipe' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
