@@ -2,6 +2,85 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 
 function App() {
+  // Fetch all recipes
+  const fetchRecipes = async () => {
+    try {
+      console.log('Fetching recipes from: http://localhost:5000/api/recipes');
+      const response = await fetch('http://localhost:5000/api/recipes', {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors'
+      });
+      const data = await response.json();
+      console.log('Recipes response:', data);
+      setRecipes(data);
+    } catch (error) {
+      console.error('Failed to fetch recipes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // State for reuse modal
+  const [reuseModalOpen, setReuseModalOpen] = useState(false);
+  const [reuseRecipe, setReuseRecipe] = useState(null);
+  const [reuseName, setReuseName] = useState('');
+  const [reuseWeek, setReuseWeek] = useState('');
+
+  // Handler to open reuse modal
+  const openReuseModal = (recipe) => {
+    setReuseRecipe(recipe);
+    setReuseName(recipe.name + ' (Copy)');
+    setReuseWeek(recipe.week || '');
+    setReuseModalOpen(true);
+  };
+
+  // Handler to submit reuse
+  const handleReuseSubmit = async (e) => {
+    e.preventDefault();
+    if (!reuseWeek) {
+      alert('Please enter a week for the new recipe.');
+      return;
+    }
+    try {
+      const res = await fetch(`http://localhost:5000/api/recipes/${reuseRecipe.id}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: reuseName, week: reuseWeek })
+      });
+      if (res.ok) {
+        setReuseModalOpen(false);
+        setReuseRecipe(null);
+        fetchRecipes();
+      } else {
+        alert('Failed to duplicate recipe.');
+      }
+    } catch (err) {
+      alert('Error duplicating recipe.');
+    }
+  };
+  // Handler for duplicating a recipe
+  const handleDuplicateRecipe = async (recipe) => {
+    const newName = window.prompt('Enter new recipe name (or leave blank for default):', recipe.name + ' (Copy)');
+    const newWeek = window.prompt('Enter week for the new recipe (YYYY-MM-DD):', recipe.week || '');
+    if (newWeek) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/recipes/${recipe.id}/duplicate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName, week: newWeek })
+        });
+        if (res.ok) {
+          fetchRecipes();
+        } else {
+          alert('Failed to duplicate recipe.');
+        }
+      } catch (err) {
+        alert('Error duplicating recipe.');
+      }
+    }
+  };
   const [healthStatus, setHealthStatus] = useState(null);
   const [ingredients, setIngredients] = useState([]);
   const [recipes, setRecipes] = useState([]);
@@ -13,8 +92,6 @@ function App() {
   const [activeTab, setActiveTab] = useState('reports');
   const [ingredientSearch, setIngredientSearch] = useState(''); // Search state for ingredients
   const [reportsLoading, setReportsLoading] = useState(false); // Loading state for reports refresh
-  // Duplicate recipe UI state
-  const [duplicateForm, setDuplicateForm] = useState({}); // { [recipeId]: { open: bool, name: string, week: string, loading: bool, error: string } }
   
   // New ingredient form
   const [newIngredient, setNewIngredient] = useState({
@@ -684,57 +761,6 @@ function App() {
     }
   }, [ingredients.length, recipes.length, vendors.length, packing.length]);
 
-  // Handle duplicate recipe
-  const handleOpenDuplicate = (recipe) => {
-    setDuplicateForm(prev => ({
-      ...prev,
-      [recipe.id]: {
-        open: true,
-        name: `${recipe.name} (Copy)` || '',
-        week: recipe.week || '',
-        loading: false,
-        error: ''
-      }
-    }));
-  };
-
-  const handleCloseDuplicate = (recipeId) => {
-    setDuplicateForm(prev => ({ ...prev, [recipeId]: { ...prev[recipeId], open: false, error: '' } }));
-  };
-
-  const handleDuplicateChange = (recipeId, field, value) => {
-    setDuplicateForm(prev => ({
-      ...prev,
-      [recipeId]: {
-        ...prev[recipeId],
-        [field]: value
-      }
-    }));
-  };
-
-  const handleDuplicateRecipe = async (recipeId) => {
-    setDuplicateForm(prev => ({ ...prev, [recipeId]: { ...prev[recipeId], loading: true, error: '' } }));
-    try {
-      const { name, week } = duplicateForm[recipeId];
-      const response = await fetch(`http://localhost:5000/api/recipes/${recipeId}/duplicate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        mode: 'cors',
-        body: JSON.stringify({ name, week })
-      });
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to duplicate recipe');
-      }
-      const newRecipe = await response.json();
-      setRecipes(prev => [...prev, newRecipe]);
-      setDuplicateForm(prev => ({ ...prev, [recipeId]: { ...prev[recipeId], open: false, loading: false, error: '' } }));
-      alert('Recipe duplicated successfully!');
-    } catch (error) {
-      setDuplicateForm(prev => ({ ...prev, [recipeId]: { ...prev[recipeId], loading: false, error: error.message } }));
-    }
-  };
-
   // Filter ingredients based on search term
   const filteredIngredients = ingredients.filter(ingredient => {
     if (!ingredientSearch) return true;
@@ -787,6 +813,30 @@ function App() {
       backgroundColor: '#f5f5f5', // Light grey background
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' 
     }}>
+      {/* Reuse Recipe Modal */}
+      {reuseModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.3)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <form onSubmit={handleReuseSubmit} style={{
+            background: 'white', padding: 32, borderRadius: 12, minWidth: 320, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+            display: 'flex', flexDirection: 'column', gap: 18, position: 'relative'
+          }}>
+            <h3 style={{margin:0, color:'#228B22'}}>Reuse Recipe</h3>
+            <label style={{fontWeight:500}}>New Recipe Name:
+              <input type="text" value={reuseName} onChange={e => setReuseName(e.target.value)} style={{width:'100%',padding:'8px',marginTop:'4px',borderRadius:'6px',border:'1px solid #ccc'}} />
+            </label>
+            <label style={{fontWeight:500}}>Week (YYYY-MM-DD):
+              <input type="date" value={reuseWeek} onChange={e => setReuseWeek(e.target.value)} style={{width:'100%',padding:'8px',marginTop:'4px',borderRadius:'6px',border:'1px solid #ccc'}} />
+            </label>
+            <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
+              <button type="button" onClick={()=>setReuseModalOpen(false)} style={{padding:'8px 16px',background:'#ccc',color:'#333',border:'none',borderRadius:'6px',cursor:'pointer'}}>Cancel</button>
+              <button type="submit" style={{padding:'8px 16px',background:'#228B22',color:'white',border:'none',borderRadius:'6px',cursor:'pointer',fontWeight:600}}>Reuse</button>
+            </div>
+          </form>
+        </div>
+      )}
       <div style={{ 
         maxWidth: '1200px', 
         margin: '0 auto', 
@@ -948,23 +998,25 @@ function App() {
                 boxShadow: '0 8px 25px rgba(0,0,0,0.1)',
                 border: '2px solid #DAA520' // Gold border
               }}>
-                <h3 style={{ 
-                  fontSize: '1.4rem', 
-                  color: '#4a4a4a', // Dark grey text
-                  marginBottom: '10px',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}>
-                  ➕ Add New Ingredient
-                </h3>
-                <p style={{
-                  fontSize: '0.9rem',
-                  color: '#6c757d',
-                  marginBottom: '20px',
-                  fontStyle: 'italic'
-                }}>
-                  Example: 6 boxes of 3lb strawberries for $10.15 total → Total paid: $10.15, Qty per box: 3, Boxes: 6
-                </p>
+                <>
+                  <h3 style={{ 
+                    fontSize: '1.4rem', 
+                    color: '#4a4a4a', // Dark grey text
+                    marginBottom: '10px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    ➕ Add New Ingredient
+                  </h3>
+                  <p style={{
+                    fontSize: '0.9rem',
+                    color: '#6c757d',
+                    marginBottom: '20px',
+                    fontStyle: 'italic'
+                  }}>
+                    Example: 6 boxes of 3lb strawberries for $10.15 total → Total paid: $10.15, Qty per box: 3, Boxes: 6
+                  </p>
+                </>
                 <form onSubmit={handleAddIngredient}>
                   <div style={{ 
                     display: 'grid', 
@@ -1648,19 +1700,19 @@ function App() {
                             <div style={{ textAlign: 'center' }}>ACTION</div>
                           </div>
                           {newRecipe.packaging.map((pkg, index) => (
-                            <div 
+                            <div
                               key={index}
-                              style={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: '2fr 1fr 1fr auto', 
-                                gap: '10px', 
-                                padding: '12px 10px',
-                                backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8f4f0',
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: '2fr 1fr 1fr auto',
+                                gap: '10px',
+                                background: index % 2 === 0 ? '#ffffff' : '#f8f4f0',
                                 borderLeft: '2px solid #8B4513',
                                 borderRight: '2px solid #8B4513',
                                 borderBottom: index === newRecipe.packaging.length - 1 ? '2px solid #8B4513' : '1px solid #e0e0e0',
                                 fontSize: '14px',
-                                alignItems: 'center'
+                                alignItems: 'center',
+                                padding: '8px 0'
                               }}
                             >
                               <div style={{ fontWeight: '500' }}>{pkg.packaging_name}</div>
@@ -2065,7 +2117,7 @@ function App() {
                             e.currentTarget.style.transform = 'scale(1)';
                             e.currentTarget.style.boxShadow = '0 6px 24px rgba(34,139,34,0.10)';
                           }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div>
                                 <h4 style={{
                                   margin: 0,
@@ -2081,28 +2133,6 @@ function App() {
                                 </h4>
                               </div>
                               <div style={{ display: 'flex', gap: '8px' }}>
-                                <button
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    handleOpenDuplicate(recipe);
-                                  }}
-                                  style={{
-                                    padding: '7px 12px',
-                                    backgroundColor: '#4169E1',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    fontSize: '13px',
-                                    fontWeight: '600',
-                                    transition: 'background-color 0.2s',
-                                    boxShadow: '0 2px 4px rgba(65, 105, 225, 0.18)'
-                                  }}
-                                  onMouseEnter={e => e.target.style.backgroundColor = '#27408B'}
-                                  onMouseLeave={e => e.target.style.backgroundColor = '#4169E1'}
-                                >
-                                  📋 Duplicate
-                                </button>
                                 <button
                                   onClick={e => {
                                     e.stopPropagation();
@@ -2125,97 +2155,31 @@ function App() {
                                 >
                                   🗑️ Delete
                                 </button>
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    openReuseModal(recipe);
+                                  }}
+                                  style={{
+                                    padding: '7px 12px',
+                                    backgroundColor: '#007bff',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    transition: 'background-color 0.2s',
+                                    boxShadow: '0 2px 4px rgba(0,123,255,0.18)'
+                                  }}
+                                  onMouseEnter={e => e.target.style.backgroundColor = '#0056b3'}
+                                  onMouseLeave={e => e.target.style.backgroundColor = '#007bff'}
+                                >
+                                  ♻️ Reuse
+                                </button>
+
                               </div>
                             </div>
-                            {/* Duplicate form (inline modal) */}
-                            {duplicateForm[recipe.id]?.open && (
-                              <form
-                                onSubmit={e => { e.preventDefault(); handleDuplicateRecipe(recipe.id); }}
-                                style={{
-                                  background: '#f0f4ff',
-                                  border: '2px solid #4169E1',
-                                  borderRadius: '10px',
-                                  padding: '18px',
-                                  margin: '12px 0',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '12px',
-                                  maxWidth: 340
-                                }}
-                              >
-                                <div style={{ fontWeight: 600, color: '#4169E1', fontSize: '1.1rem' }}>Duplicate Recipe</div>
-                                <label style={{ fontWeight: 500 }}>
-                                  Name:
-                                  <input
-                                    type="text"
-                                    value={duplicateForm[recipe.id]?.name || ''}
-                                    onChange={e => handleDuplicateChange(recipe.id, 'name', e.target.value)}
-                                    required
-                                    style={{
-                                      width: '100%',
-                                      padding: '8px',
-                                      borderRadius: '6px',
-                                      border: '1.5px solid #4169E1',
-                                      marginTop: 4
-                                    }}
-                                  />
-                                </label>
-                                <label style={{ fontWeight: 500 }}>
-                                  Week:
-                                  <input
-                                    type="date"
-                                    value={duplicateForm[recipe.id]?.week ? duplicateForm[recipe.id].week.slice(0,10) : ''}
-                                    onChange={e => handleDuplicateChange(recipe.id, 'week', e.target.value)}
-                                    required
-                                    style={{
-                                      width: '100%',
-                                      padding: '8px',
-                                      borderRadius: '6px',
-                                      border: '1.5px solid #4169E1',
-                                      marginTop: 4
-                                    }}
-                                  />
-                                </label>
-                                <div style={{ display: 'flex', gap: '10px', marginTop: 8 }}>
-                                  <button
-                                    type="submit"
-                                    disabled={duplicateForm[recipe.id]?.loading}
-                                    style={{
-                                      padding: '8px 18px',
-                                      backgroundColor: '#4169E1',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '6px',
-                                      fontWeight: 600,
-                                      cursor: 'pointer',
-                                      fontSize: '15px'
-                                    }}
-                                  >
-                                    {duplicateForm[recipe.id]?.loading ? 'Duplicating...' : 'Confirm'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCloseDuplicate(recipe.id)}
-                                    disabled={duplicateForm[recipe.id]?.loading}
-                                    style={{
-                                      padding: '8px 18px',
-                                      backgroundColor: '#aaa',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '6px',
-                                      fontWeight: 600,
-                                      cursor: 'pointer',
-                                      fontSize: '15px'
-                                    }}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                                {duplicateForm[recipe.id]?.error && (
-                                  <div style={{ color: 'red', marginTop: 6 }}>{duplicateForm[recipe.id].error}</div>
-                                )}
-                              </form>
-                            )}
                               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
                                 <div style={{ color: '#4a4a4a', fontWeight: 500 }}>Servings:</div>
                                 <div style={{ color: '#228B22', fontWeight: 700 }}>{recipe.servings}</div>
