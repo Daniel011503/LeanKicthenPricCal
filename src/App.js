@@ -1018,7 +1018,7 @@ function App() {
                     <input
                       type="number"
                       step="0.01"
-                      placeholder="Quantity (e.g., 3 for 3lb per box)"
+                      placeholder="Units (e.g., 3 for 3lb per box)"
                       value={newIngredient.quantity}
                       onChange={(e) => setNewIngredient({...newIngredient, quantity: e.target.value})}
                       required
@@ -1219,7 +1219,7 @@ function App() {
                       <div>INGREDIENT NAME</div>
                       <div style={{ textAlign: 'center' }}>Total Paid</div>
                       <div style={{ textAlign: 'center' }}>Base Cost</div>
-                      <div style={{ textAlign: 'center' }}>QTY</div>
+                      <div style={{ textAlign: 'center' }}>Unit</div>
                       <div style={{ textAlign: 'center' }}>UNIT TYPE</div>
                       <div style={{ textAlign: 'center' }}>BOXES</div>
                       <div style={{ textAlign: 'center' }}>VENDOR</div>
@@ -1581,35 +1581,7 @@ function App() {
                             ))}
                           </select>
                         </div>
-                        <div>
-                          <label style={{ 
-                            display: 'block', 
-                            marginBottom: '8px', 
-                            fontWeight: '600',
-                            color: '#4a4a4a'
-                          }}>Quantity</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={recipePackaging.quantity}
-                            onChange={(e) => setRecipePackaging(prev => ({
-                              ...prev,
-                              quantity: e.target.value
-                            }))}
-                            style={{ 
-                              padding: '12px 16px', 
-                              borderRadius: '8px', 
-                              border: '2px solid #d3d3d3',
-                              fontSize: '16px',
-                              transition: 'border-color 0.3s ease',
-                              outline: 'none',
-                              width: '100%',
-                              backgroundColor: 'white'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                            onBlur={(e) => e.target.style.borderColor = '#d3d3d3'}
-                          />
-                        </div>
+                        {/* Quantity input removed as requested */}
                         <button
                           type="button"
                           onClick={handleAddPackagingToRecipe}
@@ -1653,7 +1625,7 @@ function App() {
                             borderRadius: '8px 8px 0 0'
                           }}>
                             <div>PACKAGING</div>
-                            <div style={{ textAlign: 'center' }}>QTY</div>
+                            {/* QTY column removed as requested */}
                             <div style={{ textAlign: 'center' }}>COST</div>
                             <div style={{ textAlign: 'center' }}>ACTION</div>
                           </div>
@@ -1674,7 +1646,7 @@ function App() {
                               }}
                             >
                               <div style={{ fontWeight: '500' }}>{pkg.packaging_name}</div>
-                              <div style={{ textAlign: 'center' }}>{pkg.quantity}</div>
+                              {/* Quantity removed as requested */}
                               <div style={{ textAlign: 'center', color: '#8B4513', fontWeight: 'bold' }}>
                                 ${pkg.cost.toFixed(2)}
                               </div>
@@ -2543,63 +2515,45 @@ function App() {
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gap: '15px' }}>
-                    {/* Header Row */}
+                    {/* Refined Vendor List Header Row for perfect alignment */}
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: '2fr 1fr 2fr auto',
-                      gap: '15px',
+                      gridTemplateColumns: '2.5fr 1.5fr 2.5fr 1fr',
+                      gap: '0px',
                       padding: '15px 20px',
                       backgroundColor: '#f5f5f5',
                       borderRadius: '8px',
                       fontWeight: '600',
-                      fontSize: '14px',
-                      color: '#4a4a4a',
-                      border: '2px solid #d3d3d3'
+                      fontSize: '15px',
+                      color: '#222',
+                      border: '2px solid #d3d3d3',
+                      fontFamily: 'Segoe UI, Arial, sans-serif',
+                      textAlign: 'center'
                     }}>
-                      <div>VENDOR NAME</div>
-                      <div style={{ textAlign: 'center' }}>PHONE</div>
-                      <div style={{ textAlign: 'center' }}>ADDRESS</div>
-                      <div style={{ textAlign: 'center' }}>ACTION</div>
+                      <div style={{textAlign:'left'}}>VENDOR NAME</div>
+                      <div>PHONE</div>
+                      <div>ADDRESS</div>
+                      <div>ACTION</div>
                     </div>
                     {vendors.map((vendor, index) => (
-                      <div key={index} style={{ 
-                        backgroundColor: '#ffffff', // Pure white background
-                        padding: '20px', 
-                        borderRadius: '12px',
+                      <div key={index} style={{
+                        backgroundColor: index % 2 === 0 ? '#fff' : '#f8f9fa',
+                        padding: '14px 20px',
+                        borderRadius: '8px',
                         display: 'grid',
-                        gridTemplateColumns: '2fr 1fr 2fr auto',
-                        gap: '15px',
+                        gridTemplateColumns: '2.5fr 1.5fr 2.5fr 1fr',
+                        gap: '0px',
                         alignItems: 'center',
-                        border: '2px solid #4169E1', // Blue border for vendor items
-                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                        cursor: 'pointer'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(65, 105, 225, 0.2)'; // Blue shadow
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = 'none';
+                        border: '1px solid #e0e0e0',
+                        fontFamily: 'Segoe UI, Arial, sans-serif',
+                        fontSize: '15px',
+                        textAlign: 'center',
+                        boxSizing: 'border-box'
                       }}>
-                        <div>
-                          <strong style={{ fontSize: '18px', color: '#4a4a4a' }}>{vendor.name}</strong>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          {vendor.phone ? (
-                            <span style={{ fontSize: '14px', color: '#4a4a4a' }}>{vendor.phone}</span>
-                          ) : (
-                            <span style={{ color: '#6c757d', fontSize: '14px' }}>No phone</span>
-                          )}
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          {vendor.address ? (
-                            <span style={{ fontSize: '14px', color: '#4a4a4a' }}>{vendor.address}</span>
-                          ) : (
-                            <span style={{ color: '#6c757d', fontSize: '14px' }}>No address</span>
-                          )}
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
+                        <div style={{textAlign:'left',fontWeight:'500',fontSize:'16px',color:'#222'}}>{vendor.name}</div>
+                        <div style={{fontFamily:'monospace',textAlign:'center'}}>{vendor.phone || '-'}</div>
+                        <div style={{fontFamily:'monospace',textAlign:'center'}}>{vendor.address || '-'}</div>
+                        <div style={{textAlign:'center'}}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2614,7 +2568,7 @@ function App() {
                               cursor: 'pointer',
                               fontSize: '12px',
                               fontWeight: '600',
-                              transition: 'background-color 0.2s ease',
+                              transition: 'background-color 0.2s',
                               boxShadow: '0 2px 4px rgba(220, 53, 69, 0.3)'
                             }}
                             onMouseEnter={(e) => {
