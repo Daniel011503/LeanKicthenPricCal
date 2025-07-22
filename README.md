@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Lean Kitchen Recipe Cost Calculator
 
 A full-stack web application for calculating recipe costs, including ingredients and packaging. Built for Lean Kitchen to help manage food costs and pricing.
@@ -142,3 +143,7 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+=======
+# LeanKicthenPricCal
+A price calculator for the company known as lean kitchen.
+>>>>>>> 03df99730d00ddad079a7ffc90f80b4e56725cbc
