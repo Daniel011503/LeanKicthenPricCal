@@ -835,32 +835,7 @@ function App() {
           
           {/* Backend Status */}
           <div style={{ marginBottom: '30px' }}>
-            {healthStatus ? (
-              <div style={{ 
-                display: 'inline-block',
-                padding: '8px 16px',
-                borderRadius: '20px',
-                backgroundColor: healthStatus.status === 'OK' ? '#d4edda' : '#f8d7da',
-                border: `1px solid ${healthStatus.status === 'OK' ? '#c3e6cb' : '#f5c6cb'}`,
-                color: healthStatus.status === 'OK' ? '#155724' : '#721c24',
-                fontSize: '14px',
-                fontWeight: '500'
-              }}>
-                {healthStatus.status === 'OK' ? '✅' : '❌'} Backend: {healthStatus.status} - {healthStatus.message}
-              </div>
-            ) : (
-              <div style={{ 
-                display: 'inline-block',
-                padding: '8px 16px',
-                borderRadius: '20px',
-                backgroundColor: '#fff3cd',
-                border: '1px solid #ffeaa7',
-                color: '#856404',
-                fontSize: '14px'
-              }}>
-                🔄 Checking backend...
-              </div>
-            )}
+            {/* Backend status removed as requested */}
           </div>
 
           {/* Tab Navigation */}
@@ -2932,29 +2907,6 @@ function App() {
             </div>
           )}
         </div>
-        <footer style={{ 
-          textAlign: 'center', 
-          marginTop: '50px', 
-          padding: '20px',
-          backgroundColor: '#ffffff',
-          borderRadius: '15px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-          border: '2px solid #DAA520' // Gold border for footer
-        }}>
-          <p style={{ 
-            fontSize: '14px', 
-            color: '#4a4a4a', // Dark grey text
-            margin: '0',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '20px'
-          }}>
-            <span>🔗 Backend: http://localhost:5000</span>
-            <span>|</span>
-            <span>🖥️ Frontend: http://localhost:5001</span>
-          </p>
-        </footer>
       </div>
     </div>
   );
